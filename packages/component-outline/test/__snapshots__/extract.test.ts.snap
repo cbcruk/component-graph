@@ -1,0 +1,276 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`extract > a.tsx: function component + hooks + ternary/&&/text 1`] = `
+{
+  "components": [
+    {
+      "exported": true,
+      "hooks": [
+        {
+          "binds": [
+            "open",
+            "setOpen",
+          ],
+          "call": "useState",
+        },
+        {
+          "binds": [
+            "id",
+          ],
+          "call": "useId",
+        },
+      ],
+      "isDefault": false,
+      "name": "Profile",
+      "params": [
+        {
+          "name": null,
+          "props": [
+            {
+              "default": null,
+              "local": null,
+              "name": "user",
+              "rest": false,
+            },
+            {
+              "default": "2",
+              "local": null,
+              "name": "size",
+              "rest": false,
+            },
+            {
+              "default": null,
+              "local": null,
+              "name": "rest",
+              "rest": true,
+            },
+          ],
+          "typeRef": "ProfileProps",
+        },
+      ],
+      "range": [
+        9,
+        21,
+      ],
+      "root": {
+        "children": [
+          {
+            "children": [],
+            "kind": "component",
+            "line": 15,
+            "props": {
+              "src": {
+                "kind": "expr",
+                "text": "user.avatar",
+              },
+            },
+            "tag": "Avatar",
+          },
+          {
+            "kind": "expr",
+            "line": 16,
+            "text": "open ? <span>online</span> : null",
+          },
+          {
+            "kind": "expr",
+            "line": 17,
+            "text": "user.admin && <Badge />",
+          },
+          {
+            "kind": "text",
+            "line": 17,
+            "text": "hello",
+          },
+        ],
+        "kind": "element",
+        "line": 14,
+        "props": {
+          "className": {
+            "kind": "literal",
+            "text": "card",
+          },
+          "data-open": {
+            "kind": "expr",
+            "text": "open",
+          },
+        },
+        "tag": "div",
+      },
+      "symbolType": "function-component",
+    },
+  ],
+  "exportsSurface": [
+    "Profile",
+  ],
+  "file": "a.tsx",
+  "imports": [
+    {
+      "line": 1,
+      "names": [
+        "Avatar",
+      ],
+      "source": "./Avatar",
+    },
+    {
+      "line": 2,
+      "names": [
+        "Badge",
+      ],
+      "source": "./Badge",
+    },
+    {
+      "line": 3,
+      "names": [
+        "useState",
+      ],
+      "source": "react",
+    },
+  ],
+  "version": "0.1",
+}
+`;
+
+exports[`extract > b.tsx: arrow expression-body component 1`] = `
+{
+  "components": [
+    {
+      "exported": true,
+      "hooks": [],
+      "isDefault": false,
+      "name": "Tag",
+      "params": [
+        {
+          "name": null,
+          "props": [
+            {
+              "default": null,
+              "local": null,
+              "name": "label",
+              "rest": false,
+            },
+            {
+              "default": null,
+              "local": "color",
+              "name": "tone",
+              "rest": false,
+            },
+          ],
+          "typeRef": "TagProps",
+        },
+      ],
+      "range": [
+        5,
+        9,
+      ],
+      "root": {
+        "children": [
+          {
+            "kind": "expr",
+            "line": 7,
+            "text": "label",
+          },
+        ],
+        "kind": "element",
+        "line": 6,
+        "props": {
+          "className": {
+            "kind": "literal",
+            "text": "tag",
+          },
+          "data-tone": {
+            "kind": "expr",
+            "text": "color",
+          },
+        },
+        "tag": "em",
+      },
+      "symbolType": "arrow-component",
+    },
+  ],
+  "exportsSurface": [
+    "Tag",
+  ],
+  "file": "b.tsx",
+  "imports": [],
+  "version": "0.1",
+}
+`;
+
+exports[`extract > c.tsx: export default function with fragment 1`] = `
+{
+  "components": [
+    {
+      "exported": true,
+      "hooks": [
+        {
+          "binds": [
+            "user",
+          ],
+          "call": "useCurrentUser",
+        },
+      ],
+      "isDefault": true,
+      "name": "App",
+      "params": [],
+      "range": [
+        3,
+        14,
+      ],
+      "root": {
+        "children": [
+          {
+            "children": [],
+            "kind": "component",
+            "line": 8,
+            "props": {
+              "user": {
+                "kind": "expr",
+                "text": "user",
+              },
+            },
+            "tag": "Profile",
+          },
+          {
+            "children": [
+              {
+                "children": [
+                  {
+                    "kind": "text",
+                    "line": 10,
+                    "text": "© 2026",
+                  },
+                ],
+                "kind": "element",
+                "line": 10,
+                "props": {},
+                "tag": "footer",
+              },
+            ],
+            "kind": "fragment",
+            "line": 9,
+          },
+        ],
+        "kind": "element",
+        "line": 7,
+        "props": {},
+        "tag": "main",
+      },
+      "symbolType": "function-component",
+    },
+  ],
+  "exportsSurface": [
+    "App",
+  ],
+  "file": "c.tsx",
+  "imports": [
+    {
+      "line": 1,
+      "names": [
+        "Profile",
+      ],
+      "source": "./a",
+    },
+  ],
+  "version": "0.1",
+}
+`;

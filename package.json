@@ -1,0 +1,11 @@
+{
+  "name": "component-graph",
+  "private": true,
+  "version": "0.0.0",
+  "description": "React/JSX structure tooling for agents: parse-now structure reader (B) + checked editor (A)",
+  "packageManager": "pnpm@10.33.0",
+  "scripts": {
+    "test": "pnpm -r test",
+    "build": "pnpm -r build"
+  }
+}
