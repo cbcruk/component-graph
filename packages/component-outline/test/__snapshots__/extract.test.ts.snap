@@ -97,6 +97,7 @@ exports[`extract > a.tsx: function component + hooks + ternary/&&/text 1`] = `
         "tag": "div",
       },
       "symbolType": "function-component",
+      "wrappers": [],
     },
   ],
   "exportsSurface": [
@@ -185,6 +186,7 @@ exports[`extract > b.tsx: arrow expression-body component 1`] = `
         "tag": "em",
       },
       "symbolType": "arrow-component",
+      "wrappers": [],
     },
   ],
   "exportsSurface": [
@@ -256,6 +258,7 @@ exports[`extract > c.tsx: export default function with fragment 1`] = `
         "tag": "main",
       },
       "symbolType": "function-component",
+      "wrappers": [],
     },
   ],
   "exportsSurface": [
@@ -271,6 +274,186 @@ exports[`extract > c.tsx: export default function with fragment 1`] = `
       "source": "./a",
     },
   ],
+  "version": "0.1",
+}
+`;
+
+exports[`extract > d.tsx: memo / forwardRef / nested HOC, multiple components 1`] = `
+{
+  "components": [
+    {
+      "exported": true,
+      "hooks": [],
+      "isDefault": false,
+      "name": "Box",
+      "params": [
+        {
+          "name": "props",
+          "props": [],
+          "typeRef": null,
+        },
+        {
+          "name": "ref",
+          "props": [],
+          "typeRef": null,
+        },
+      ],
+      "range": [
+        7,
+        7,
+      ],
+      "root": {
+        "children": [],
+        "kind": "element",
+        "line": 7,
+        "props": {
+          "ref": {
+            "kind": "expr",
+            "text": "ref",
+          },
+        },
+        "tag": "div",
+      },
+      "symbolType": "arrow-component",
+      "wrappers": [
+        "forwardRef",
+      ],
+    },
+    {
+      "exported": true,
+      "hooks": [],
+      "isDefault": false,
+      "name": "Card",
+      "params": [
+        {
+          "name": null,
+          "props": [
+            {
+              "default": null,
+              "local": null,
+              "name": "title",
+              "rest": false,
+            },
+          ],
+          "typeRef": "CardProps",
+        },
+      ],
+      "range": [
+        9,
+        11,
+      ],
+      "root": {
+        "children": [
+          {
+            "kind": "expr",
+            "line": 10,
+            "text": "title",
+          },
+        ],
+        "kind": "element",
+        "line": 10,
+        "props": {},
+        "tag": "article",
+      },
+      "symbolType": "function-component",
+      "wrappers": [
+        "memo",
+      ],
+    },
+    {
+      "exported": false,
+      "hooks": [],
+      "isDefault": false,
+      "name": "Shiny",
+      "params": [
+        {
+          "name": "props",
+          "props": [],
+          "typeRef": null,
+        },
+        {
+          "name": "ref",
+          "props": [],
+          "typeRef": null,
+        },
+      ],
+      "range": [
+        13,
+        13,
+      ],
+      "root": {
+        "children": [],
+        "kind": "element",
+        "line": 13,
+        "props": {
+          "ref": {
+            "kind": "expr",
+            "text": "ref",
+          },
+        },
+        "tag": "span",
+      },
+      "symbolType": "arrow-component",
+      "wrappers": [
+        "memo",
+        "forwardRef",
+      ],
+    },
+  ],
+  "exportsSurface": [
+    "Box",
+    "Card",
+  ],
+  "file": "d.tsx",
+  "imports": [
+    {
+      "line": 1,
+      "names": [
+        "forwardRef",
+        "memo",
+      ],
+      "source": "react",
+    },
+  ],
+  "version": "0.1",
+}
+`;
+
+exports[`extract > e.tsx: anonymous default arrow component 1`] = `
+{
+  "components": [
+    {
+      "exported": true,
+      "hooks": [],
+      "isDefault": true,
+      "name": "default",
+      "params": [],
+      "range": [
+        1,
+        1,
+      ],
+      "root": {
+        "children": [
+          {
+            "kind": "text",
+            "line": 1,
+            "text": "© 2026",
+          },
+        ],
+        "kind": "element",
+        "line": 1,
+        "props": {},
+        "tag": "footer",
+      },
+      "symbolType": "arrow-component",
+      "wrappers": [],
+    },
+  ],
+  "exportsSurface": [
+    "default",
+  ],
+  "file": "e.tsx",
+  "imports": [],
   "version": "0.1",
 }
 `;

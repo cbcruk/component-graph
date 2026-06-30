@@ -24,6 +24,14 @@ describe('extract', () => {
     expect(outlineOf('c.tsx')).toMatchSnapshot();
   });
 
+  it('d.tsx: memo / forwardRef / nested HOC, multiple components', () => {
+    expect(outlineOf('d.tsx')).toMatchSnapshot();
+  });
+
+  it('e.tsx: anonymous default arrow component', () => {
+    expect(outlineOf('e.tsx')).toMatchSnapshot();
+  });
+
   it('keeps prop values opaque (literal | expr only)', () => {
     const profile = outlineOf('a.tsx').components.find((c) => c.name === 'Profile');
     const root = profile?.root;
@@ -59,5 +67,39 @@ describe('extract', () => {
     const app = outlineOf('c.tsx').components.find((c) => c.name === 'App');
     expect(app?.isDefault).toBe(true);
     expect(app?.exported).toBe(true);
+  });
+
+  it('records HOC wrapper chains outermost-first', () => {
+    const outline = outlineOf('d.tsx');
+    const byName = (n: string) => outline.components.find((c) => c.name === n);
+
+    expect(byName('Box')?.wrappers).toEqual(['forwardRef']);
+    expect(byName('Box')?.symbolType).toBe('arrow-component');
+
+    expect(byName('Card')?.wrappers).toEqual(['memo']);
+    expect(byName('Card')?.symbolType).toBe('function-component');
+
+    expect(byName('Shiny')?.wrappers).toEqual(['memo', 'forwardRef']);
+    expect(outline.components.map((c) => c.name)).toEqual(['Box', 'Card', 'Shiny']);
+  });
+
+  it('names anonymous default components "default"', () => {
+    const [component] = outlineOf('e.tsx').components;
+    expect(component?.name).toBe('default');
+    expect(component?.isDefault).toBe(true);
+    expect(component?.symbolType).toBe('arrow-component');
+    expect(component?.wrappers).toEqual([]);
+  });
+
+  it('handles anonymous default function expression', () => {
+    const outline = extract('inline.tsx', 'export default function () { return <aside /> }');
+    expect(outline.components).toHaveLength(1);
+    expect(outline.components[0]?.name).toBe('default');
+    expect(outline.components[0]?.symbolType).toBe('function-component');
+  });
+
+  it('does not misclassify non-HOC calls as components', () => {
+    const outline = extract('inline.tsx', 'const x = styled(Foo);\nconst y = compute();');
+    expect(outline.components).toHaveLength(0);
   });
 });

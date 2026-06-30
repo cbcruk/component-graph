@@ -1,5 +1,9 @@
 import { parse, Lang, type SgNode } from '@ast-grep/napi';
-import { runCatalog, type ShapeReading } from './catalog.js';
+import {
+  readExpressionComponent,
+  runCatalog,
+  type ShapeReading,
+} from './catalog.js';
 import {
   classifyTag,
   collapseWhitespace,
@@ -52,15 +56,20 @@ export function extract(file: string, code: string): Outline {
     }
 
     if (kind === 'export_statement') {
-      const { inner, isDefault, names } = readExportStatement(node);
+      const { inner, defaultExpr, isDefault, names } = readExportStatement(node);
       names.forEach((n) => exportNames.add(n));
-      if (inner) {
-        for (const reading of runCatalog(inner)) {
-          const component = buildComponent(reading, node, true, isDefault);
-          if (component) {
-            components.push(component);
-            exportNames.add(component.name);
-          }
+      const readings = inner
+        ? runCatalog(inner)
+        : defaultExpr
+          ? [readExpressionComponent(defaultExpr)].filter(
+              (r): r is ShapeReading => r !== null,
+            )
+          : [];
+      for (const reading of readings) {
+        const component = buildComponent(reading, node, true, isDefault);
+        if (component) {
+          components.push(component);
+          exportNames.add(component.name);
         }
       }
       continue;
@@ -99,6 +108,7 @@ function buildComponent(
     exported,
     isDefault,
     symbolType: reading.symbolType,
+    wrappers: reading.wrappers,
     params: readParams(reading.fnNode),
     hooks: readHooks(reading.fnNode),
     root: buildSkel(rootJsx),
@@ -136,17 +146,18 @@ function readImport(node: SgNode): ImportRef {
 
 interface ExportInfo {
   inner: SgNode | null;
+  defaultExpr: SgNode | null;
   isDefault: boolean;
   names: string[];
 }
 
 function readExportStatement(node: SgNode): ExportInfo {
-  const isDefault = node.children().some((c) => c.kind() === 'default');
+  const isDefault = node.children().some((c) => kindOf(c) === 'default');
   let inner: SgNode | null = null;
   const names: string[] = [];
 
   for (const child of node.children()) {
-    const kind = child.kind();
+    const kind = kindOf(child);
     if (
       kind === 'function_declaration' ||
       kind === 'lexical_declaration' ||
@@ -156,14 +167,14 @@ function readExportStatement(node: SgNode): ExportInfo {
       inner = child;
     } else if (kind === 'export_clause') {
       for (const spec of child.children()) {
-        if (spec.kind() !== 'export_specifier') continue;
+        if (kindOf(spec) !== 'export_specifier') continue;
         const name = spec.field('name');
         if (name) names.push(name.text());
       }
     }
   }
 
-  return { inner, isDefault, names };
+  return { inner, defaultExpr: node.field('value'), isDefault, names };
 }
 
 function readParams(fnNode: SgNode): Param[] {

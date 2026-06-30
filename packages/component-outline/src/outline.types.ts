@@ -22,6 +22,8 @@ export interface Component {
   exported: boolean;
   isDefault: boolean;
   symbolType: SymbolType;
+  /** HOC chain wrapping the component, outermost first (e.g. ["memo", "forwardRef"]). */
+  wrappers: string[];
   params: Param[];
   hooks: HookCall[];
   root: SkelNode | null;

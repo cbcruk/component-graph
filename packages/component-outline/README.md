@@ -75,6 +75,7 @@ The output is the interface that agents and the A layer depend on.
       "exported": true,
       "isDefault": false,
       "symbolType": "function-component",        // | "arrow-component"
+      "wrappers": [],                            // HOC chain, e.g. ["memo", "forwardRef"]
       "params": [
         {
           "name": null,                          // set for a plain identifier param
@@ -119,14 +120,20 @@ The output is the interface that agents and the A layer depend on.
 ## Coverage & non-goals
 
 Covered: function components, arrow components (expression / block / parenthesized
-body), `export default function`, single-identifier and destructured object
-params (shorthand, default, renamed, rest), hook calls with their bindings,
-JSX element / component / fragment / text / expr nodes, source ranges, and the
-import/export surface.
+body), named and anonymous `export default` (function or arrow), `memo` /
+`forwardRef` / nested `memo(forwardRef(...))` wrappers (recorded in `wrappers`,
+outermost first), multiple components per file, single-identifier and
+destructured object params (shorthand, default, renamed, rest), hook calls with
+their bindings, JSX element / component / fragment / text / expr nodes, source
+ranges, and the import/export surface.
+
+Recognized HOCs live in a `HOC_NAMES` set in [`src/catalog.ts`](./src/catalog.ts);
+an unknown wrapper (e.g. `styled(Foo)`) is deliberately *not* treated as a
+component — honest-partial over guessing.
 
 Out of scope (deferred to Tier 1 / the A layer): type resolution, following
 imports, data-flow edges, dependency-array semantics, nested component
-declarations. Fragments are detected structurally — `<>...</>` parses as a
+declarations (a component defined inside another's body). Fragments are detected structurally — `<>...</>` parses as a
 `jsx_element` with no tag name, **not** a distinct `jsx_fragment` kind — so
 catalog correctness is guarded by per-variant fixture snapshots in
 [`test/`](./test).

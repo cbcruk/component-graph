@@ -42,6 +42,7 @@ function printComponentHeader(component: Component): string {
     component.symbolType,
     component.exported ? (component.isDefault ? 'export default' : 'export') : 'local',
   ];
+  if (component.wrappers.length > 0) tags.push(component.wrappers.join('→'));
   return `  <${component.name}>  (${tags.join(', ')})  [L${component.range[0]}–${component.range[1]}]`;
 }
 
