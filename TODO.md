@@ -34,13 +34,14 @@
 ## 더 멀리 (채택 비용 큼 — 신중히)
 
 - [ ] **cross-file (Tier 1 확장)** — import 따라가 타입/데이터플로 해석. 브리프의 "no-cross-file"을 A 레이어 편집 노드에 한해 완화.
-- [ ] **B 카탈로그 확장** — 중첩 컴포넌트, `export { X }` 리스트, `styled`/기타 HOC(honest하게 opt-in 카탈로그).
+- [x] **B 카탈로그 확장 (1차)** — class 컴포넌트(render 기반, honest), `export { X as Y }` 리네임 re-export 처리 완료.
+- [ ] **B 카탈로그 확장 (계속)** — 중첩 컴포넌트, `styled`/기타 HOC(honest하게 opt-in 카탈로그).
 - [ ] **outline `--items imports` 등 CLI 필터 정교화**, 디렉터리 export-surface 요약 뷰 개선.
 
 ---
 
 ## 참고 — 현재 상태 (완료)
 
-- `packages/component-outline` (B): parse-now 추출기 + CLI + 계약 v0.1. 13 tests.
-- `packages/cgraph` (A): graph lens + projection + 라운드트립 법칙 + `extractComponent`(Tier 1, fail-closed). 21 tests.
+- `packages/component-outline` (B): parse-now 추출기 + CLI + 계약 v0.1. 19 tests (class 컴포넌트 + 리네임 re-export 포함).
+- `packages/cgraph` (A): graph lens + projection + 라운드트립 법칙 + `extractComponent`(Tier 1, fail-closed, 정직한 부분집합). 24 tests.
 - 원칙: honest-partial · parse-now/no-index · no cross-file · graph는 ephemeral(TSX가 진실) · checked & atomic.

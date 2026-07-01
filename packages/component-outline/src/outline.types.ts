@@ -1,6 +1,9 @@
 export const OUTLINE_VERSION = '0.1' as const;
 
-export type SymbolType = 'function-component' | 'arrow-component';
+export type SymbolType =
+  | 'function-component'
+  | 'arrow-component'
+  | 'class-component';
 
 export interface Outline {
   version: typeof OUTLINE_VERSION;

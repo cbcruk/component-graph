@@ -103,3 +103,64 @@ describe('extract', () => {
     expect(outline.components).toHaveLength(0);
   });
 });
+
+describe('extract — class components', () => {
+  it('f.tsx: exported and local class components', () => {
+    expect(outlineOf('f.tsx')).toMatchSnapshot();
+  });
+
+  it('recognizes a class component by its render method', () => {
+    const outline = outlineOf('f.tsx');
+    const counter = outline.components.find((c) => c.name === 'Counter');
+    expect(counter?.symbolType).toBe('class-component');
+    expect(counter?.exported).toBe(true);
+    expect(counter?.root?.kind).toBe('element');
+    expect(outline.components.map((c) => c.name)).toEqual(['Counter', 'Hidden']);
+  });
+
+  it('reads default class components (named and anonymous)', () => {
+    const named = extract(
+      'x.tsx',
+      'export default class Card extends Component {\n  render() { return <div/>; }\n}',
+    );
+    expect(named.components[0]?.name).toBe('Card');
+    expect(named.components[0]?.symbolType).toBe('class-component');
+    expect(named.components[0]?.isDefault).toBe(true);
+
+    const anon = extract(
+      'x.tsx',
+      'export default class extends Component {\n  render() { return <span/>; }\n}',
+    );
+    expect(anon.components[0]?.name).toBe('default');
+    expect(anon.components[0]?.isDefault).toBe(true);
+  });
+
+  it('drops a class without a JSX-returning render (honest-partial)', () => {
+    const noRender = extract('x.tsx', 'class NotAComp extends Base { helper() { return 1; } }');
+    expect(noRender.components).toHaveLength(0);
+
+    const noJsx = extract('x.tsx', 'class NoJsx extends Component { render() { return null; } }');
+    expect(noJsx.components).toHaveLength(0);
+  });
+});
+
+describe('extract — renamed re-exports', () => {
+  it('surfaces the alias while marking the local component exported', () => {
+    const outline = extract(
+      'x.tsx',
+      'function Foo() { return <a/>; }\nexport { Foo as Bar };',
+    );
+    const foo = outline.components.find((c) => c.name === 'Foo');
+    expect(foo?.exported).toBe(true);
+    expect(outline.exportsSurface).toEqual(['Bar']);
+  });
+
+  it('keeps the plain name when there is no alias', () => {
+    const outline = extract(
+      'x.tsx',
+      'function Foo() { return <a/>; }\nexport { Foo };',
+    );
+    expect(outline.exportsSurface).toEqual(['Foo']);
+    expect(outline.components.find((c) => c.name === 'Foo')?.exported).toBe(true);
+  });
+});

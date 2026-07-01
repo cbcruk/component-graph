@@ -457,3 +457,89 @@ exports[`extract > e.tsx: anonymous default arrow component 1`] = `
   "version": "0.1",
 }
 `;
+
+exports[`extract — class components > f.tsx: exported and local class components 1`] = `
+{
+  "components": [
+    {
+      "exported": true,
+      "hooks": [],
+      "isDefault": false,
+      "name": "Counter",
+      "params": [],
+      "range": [
+        7,
+        15,
+      ],
+      "root": {
+        "children": [
+          {
+            "children": [
+              {
+                "kind": "expr",
+                "line": 11,
+                "text": "this.props.start",
+              },
+            ],
+            "kind": "element",
+            "line": 11,
+            "props": {},
+            "tag": "span",
+          },
+        ],
+        "kind": "element",
+        "line": 10,
+        "props": {
+          "className": {
+            "kind": "literal",
+            "text": "counter",
+          },
+        },
+        "tag": "div",
+      },
+      "symbolType": "class-component",
+      "wrappers": [],
+    },
+    {
+      "exported": false,
+      "hooks": [],
+      "isDefault": false,
+      "name": "Hidden",
+      "params": [],
+      "range": [
+        17,
+        21,
+      ],
+      "root": {
+        "children": [
+          {
+            "kind": "text",
+            "line": 19,
+            "text": "hidden",
+          },
+        ],
+        "kind": "element",
+        "line": 19,
+        "props": {},
+        "tag": "em",
+      },
+      "symbolType": "class-component",
+      "wrappers": [],
+    },
+  ],
+  "exportsSurface": [
+    "Counter",
+  ],
+  "file": "f.tsx",
+  "imports": [
+    {
+      "line": 1,
+      "names": [
+        "Component",
+      ],
+      "source": "react",
+    },
+  ],
+  "version": "0.1",
+}
+`;

@@ -74,7 +74,7 @@ The output is the interface that agents and the A layer depend on.
       "name": "Profile",
       "exported": true,
       "isDefault": false,
-      "symbolType": "function-component",        // | "arrow-component"
+      "symbolType": "function-component",        // | "arrow-component" | "class-component"
       "wrappers": [],                            // HOC chain, e.g. ["memo", "forwardRef"]
       "params": [
         {
@@ -120,12 +120,16 @@ The output is the interface that agents and the A layer depend on.
 ## Coverage & non-goals
 
 Covered: function components, arrow components (expression / block / parenthesized
-body), named and anonymous `export default` (function or arrow), `memo` /
-`forwardRef` / nested `memo(forwardRef(...))` wrappers (recorded in `wrappers`,
-outermost first), multiple components per file, single-identifier and
-destructured object params (shorthand, default, renamed, rest), hook calls with
-their bindings, JSX element / component / fragment / text / expr nodes, source
-ranges, and the import/export surface.
+body), class components (`class Foo extends Component { render() { … } }`,
+recognized structurally by a JSX-returning `render`; props flow through
+`this.props`, so the param list is honestly empty), named and anonymous
+`export default` (function, arrow, or class), `memo` / `forwardRef` / nested
+`memo(forwardRef(...))` wrappers (recorded in `wrappers`, outermost first),
+multiple components per file, single-identifier and destructured object params
+(shorthand, default, renamed, rest), hook calls with their bindings, JSX element /
+component / fragment / text / expr nodes, source ranges, and the import/export
+surface. Renamed re-exports (`export { Foo as Bar }`) surface the public alias in
+`exportsSurface` while still marking the local `Foo` component `exported`.
 
 Recognized HOCs live in a `HOC_NAMES` set in [`src/catalog.ts`](./src/catalog.ts);
 an unknown wrapper (e.g. `styled(Foo)`) is deliberately *not* treated as a

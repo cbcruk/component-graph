@@ -45,7 +45,8 @@ export function extract(file: string, code: string): Outline {
   const root = parse(Lang.Tsx, code).root();
   const imports: ImportRef[] = [];
   const components: Component[] = [];
-  const exportNames = new Set<string>();
+  const surface = new Set<string>();
+  const exportedLocals = new Set<string>();
 
   for (const node of root.children()) {
     const kind = node.kind();
@@ -56,8 +57,11 @@ export function extract(file: string, code: string): Outline {
     }
 
     if (kind === 'export_statement') {
-      const { inner, defaultExpr, isDefault, names } = readExportStatement(node);
-      names.forEach((n) => exportNames.add(n));
+      const { inner, defaultExpr, isDefault, specs } = readExportStatement(node);
+      for (const spec of specs) {
+        surface.add(spec.public);
+        exportedLocals.add(spec.local);
+      }
       const readings = inner
         ? runCatalog(inner)
         : defaultExpr
@@ -69,7 +73,7 @@ export function extract(file: string, code: string): Outline {
         const component = buildComponent(reading, node, true, isDefault);
         if (component) {
           components.push(component);
-          exportNames.add(component.name);
+          surface.add(component.name);
         }
       }
       continue;
@@ -82,7 +86,7 @@ export function extract(file: string, code: string): Outline {
   }
 
   for (const component of components) {
-    if (exportNames.has(component.name)) component.exported = true;
+    if (exportedLocals.has(component.name)) component.exported = true;
   }
 
   return {
@@ -90,7 +94,7 @@ export function extract(file: string, code: string): Outline {
     file,
     imports,
     components,
-    exportsSurface: [...exportNames],
+    exportsSurface: [...surface],
   };
 }
 
@@ -144,17 +148,24 @@ function readImport(node: SgNode): ImportRef {
   };
 }
 
+interface ExportSpec {
+  /** Local declaration name (matches a `Component.name`). */
+  local: string;
+  /** Public name on the export surface (the alias when renamed). */
+  public: string;
+}
+
 interface ExportInfo {
   inner: SgNode | null;
   defaultExpr: SgNode | null;
   isDefault: boolean;
-  names: string[];
+  specs: ExportSpec[];
 }
 
 function readExportStatement(node: SgNode): ExportInfo {
   const isDefault = node.children().some((c) => kindOf(c) === 'default');
   let inner: SgNode | null = null;
-  const names: string[] = [];
+  const specs: ExportSpec[] = [];
 
   for (const child of node.children()) {
     const kind = kindOf(child);
@@ -169,12 +180,17 @@ function readExportStatement(node: SgNode): ExportInfo {
       for (const spec of child.children()) {
         if (kindOf(spec) !== 'export_specifier') continue;
         const name = spec.field('name');
-        if (name) names.push(name.text());
+        if (!name) continue;
+        const alias = spec.field('alias');
+        specs.push({
+          local: name.text(),
+          public: alias ? alias.text() : name.text(),
+        });
       }
     }
   }
 
-  return { inner, defaultExpr: node.field('value'), isDefault, names };
+  return { inner, defaultExpr: node.field('value'), isDefault, specs };
 }
 
 function readParams(fnNode: SgNode): Param[] {

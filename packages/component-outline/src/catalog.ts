@@ -111,9 +111,44 @@ const readVariableComponent: ComponentReader = (node) => {
   return out;
 };
 
+/**
+ * A class component: `class Foo extends Component { render() { return <jsx/> } }`.
+ * Recognized structurally by a `render` method — the JSX gate downstream
+ * (`buildComponent` drops a reading with no root JSX) keeps false positives out.
+ * `fnNode` is the render method, so params/hooks/root read uniformly. Props flow
+ * through `this.props`, so its param list is honestly empty at Tier 0.
+ */
+function classRenderReading(node: SgNode): ShapeReading | null {
+  const kind = kindOf(node);
+  if (kind !== 'class_declaration' && kind !== 'class') return null;
+  const body = node.field('body');
+  if (!body) return null;
+  const render = body
+    .children()
+    .find(
+      (c) =>
+        kindOf(c) === 'method_definition' &&
+        c.field('name')?.text() === 'render',
+    );
+  if (!render) return null;
+  const name = node.field('name');
+  return {
+    name: name ? name.text() : null,
+    symbolType: 'class-component',
+    fnNode: render,
+    wrappers: [],
+  };
+}
+
+const readClassComponent: ComponentReader = (node) => {
+  const reading = classRenderReading(node);
+  return reading ? [reading] : [];
+};
+
 export const CATALOG: ComponentReader[] = [
   readFunctionDeclaration,
   readVariableComponent,
+  readClassComponent,
 ];
 
 export function runCatalog(node: SgNode): ShapeReading[] {
@@ -126,6 +161,8 @@ export function runCatalog(node: SgNode): ShapeReading[] {
  * function's own name when present.
  */
 export function readExpressionComponent(expr: SgNode): ShapeReading | null {
+  const cls = classRenderReading(expr);
+  if (cls) return cls;
   const target = unwrapToFunction(expr);
   if (!target) return null;
   const name = target.fnNode.field('name');
