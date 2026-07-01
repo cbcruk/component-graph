@@ -13,9 +13,9 @@ This is the JXON round-trip lineage made concrete: B's `extract` is the
 `createObjTree` (reader), and this layer's project/re-extract pair is the
 GetPut/PutGet law (checked bidirectional editor).
 
-## Scope (Task 3 — the foundation, not the marquee op)
+## What's here
 
-Built here:
+**Foundation (Task 3)** — the ephemeral lens + round-trip law:
 
 - **`componentToGraph(component)`** — outline component → `Graph`. `expr`
   bindings are carried opaquely; nothing is resolved.
@@ -24,14 +24,33 @@ Built here:
   must be identical. Formatting is normalized away; opaque `expr` nodes (e.g.
   `{open ? <span>online</span> : null}`) survive verbatim.
 
-Deferred to **Task 4**:
+**Marquee op (Task 4)** — `extractComponent`:
 
-- Tier 1 promotion (ts-morph/tsc): resolve a selected subtree's free variables,
-  turning some `expr` into a resolved `path`.
-- The marquee op **`extractComponent`**: infer new-component props from free
-  vars, rewire the original to a single usage, type-check, reproject — all
-  fail-closed (stale-hash / type-mismatch / unresolved-binding / cyclic
-  rejected before the store is touched).
+```ts
+extractComponent({ file, code, component: 'Card', targetLine: 12, newName: 'Count' })
+// -> { ok: true, output, newComponent, usage, props, edits, hash }
+```
+
+It lifts a JSX element subtree into a new sibling component:
+
+1. **Free-var analysis** — identifiers the subtree references that are bound in
+   the enclosing component's scope (params / hook binds / locals) become props.
+   Tag names and locally-bound names are excluded; free vars are found even
+   *inside* opaque `expr` nodes.
+2. **Tier 1 promotion** — ts-morph resolves each prop's type (`count: number`,
+   `label: string`) and its data-flow origin (`param` | `hook` | `local`). This
+   is the localized `expr → path` the design calls for: types aren't cheaper,
+   just deferred to the one node being edited.
+3. **Rewire** — the original occurrence is replaced by `<New … />`; the new
+   component is inserted as a sibling. Edits are character-offset `TextEdit`s.
+4. **Fail-closed** — nothing is emitted unless every guard passes: `stale-hash`,
+   `invalid-name`, `name-collision`, `component-not-found`, `target-not-found`,
+   `target-is-root`, `cyclic`, structural re-extraction invariants, and a
+   ts-morph diagnostic-delta type gate (`type-check-failed`).
+
+The moved subtree is the **verbatim source slice** — so an element containing
+`{show && items.length}` moves whole, its opaque interior byte-for-byte intact,
+while `show`/`items` still surface as typed props.
 
 ## The graph model
 

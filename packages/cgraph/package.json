@@ -20,7 +20,9 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "component-outline": "workspace:*"
+    "@ast-grep/napi": "^0.39.5",
+    "component-outline": "workspace:*",
+    "ts-morph": "^24.0.0"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",

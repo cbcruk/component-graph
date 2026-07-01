@@ -1,0 +1,29 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`extractComponent — success > matches the projected edit shape 1`] = `
+"interface CardProps {
+  title: string;
+  count: number;
+}
+
+export function Card({ title, count }: CardProps) {
+  const label = title.toUpperCase();
+
+  return (
+    <section className="card">
+      <header>{label}</header>
+      <Count count={count} />
+    </section>
+  );
+}
+
+function Count({ count }: {
+  count: number;
+}) {
+  return (
+    <span className="count">{count}</span>
+  );
+}
+
+"
+`;
