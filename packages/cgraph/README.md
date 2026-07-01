@@ -46,7 +46,11 @@ It lifts a JSX element subtree into a new sibling component:
 4. **Fail-closed** — nothing is emitted unless every guard passes: `stale-hash`,
    `invalid-name`, `name-collision`, `component-not-found`, `target-not-found`,
    `target-is-root`, `cyclic`, structural re-extraction invariants, and a
-   ts-morph diagnostic-delta type gate (`type-check-failed`).
+   ts-morph diagnostic-delta type gate (`type-check-failed`). Cases outside the
+   honest subset are rejected *up front* with a specific reason rather than a
+   vague late gate failure: a target inside an opaque expression
+   (`{cond && <x/>}`, ternary, `.map` callback) → `unsupported-conditional`; a
+   free var shadowed by a nested binding inside the target → `unsupported-shadowing`.
 
 The moved subtree is the **verbatim source slice** — so an element containing
 `{show && items.length}` moves whole, its opaque interior byte-for-byte intact,
@@ -81,3 +85,12 @@ render props stay as opaque `expr` nodes carrying source text. That is a
 feature: an opaque node round-trips losslessly and (in Task 4) will move whole
 during `extractComponent` without its interior being touched — conservative and
 correct over clever and wrong.
+
+The editor draws the same line explicitly. An element that *contains* an opaque
+expression moves whole (its free vars still surface as props), but a target that
+*sits inside* one is out of the honest subset — the round-trip check can't see a
+usage buried in an opaque node — so it is rejected with `unsupported-conditional`
+rather than emitting an unverifiable edit. Likewise, free-var analysis is
+scope-shallow by design (no full binder); when a name is both an enclosing-scope
+binding and bound by a nested scope inside the target, that ambiguity is rejected
+with `unsupported-shadowing` instead of silently guessing.

@@ -97,6 +97,77 @@ describe('extractComponent — honest limits', () => {
   });
 });
 
+describe('extractComponent — honest rejections', () => {
+  it('rejects a target inside an opaque expression instead of a vague verify failure', () => {
+    const code = [
+      'export function Panel({ show, title }: { show: boolean; title: string }) {',
+      '  return (',
+      '    <div className="panel">',
+      '      {show && <span className="t">{title}</span>}',
+      '    </div>',
+      '  );',
+      '}',
+    ].join('\n');
+    const result = extractComponent({
+      file: 'p.tsx',
+      code,
+      component: 'Panel',
+      targetLine: 4,
+      newName: 'Inner',
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe('unsupported-conditional');
+  });
+
+  it('rejects a free var shadowed by a nested binding rather than dropping it', () => {
+    const code = [
+      'export function Panel({ x }: { x: number }) {',
+      '  return (',
+      '    <section>',
+      '      <div className="wrap">',
+      '        <span>{x}</span>',
+      '        <button onClick={(x) => console.log(x)}>ok</button>',
+      '      </div>',
+      '    </section>',
+      '  );',
+      '}',
+    ].join('\n');
+    const result = extractComponent({
+      file: 'p.tsx',
+      code,
+      component: 'Panel',
+      targetLine: 4,
+      newName: 'Inner',
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe('unsupported-shadowing');
+  });
+
+  it('surfaces an object-shorthand free var ({{ count }}) as a typed prop', () => {
+    const code = [
+      'export function Panel({ count }: { count: number }) {',
+      '  return (',
+      '    <div className="wrap">',
+      '      <Chart data={{ count }} />',
+      '    </div>',
+      '  );',
+      '}',
+    ].join('\n');
+    const result = extractComponent({
+      file: 'p.tsx',
+      code,
+      component: 'Panel',
+      targetLine: 4,
+      newName: 'Inner',
+    });
+    if (!result.ok) throw new Error(`unexpected failure: ${result.reason}`);
+    expect(result.props).toEqual([
+      { name: 'count', typeText: 'number', origin: 'param' },
+    ]);
+    expect(result.usage).toBe('<Inner count={count} />');
+  });
+});
+
 describe('extractComponent — fail-closed', () => {
   const cases: Array<[string, Parameters<typeof extractComponent>[0], string]> = [
     [

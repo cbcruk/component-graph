@@ -61,10 +61,12 @@ export function extractComponent(
   const target = findTargetJsx(rootJsx, req.targetLine);
   if (!target) return fail('target-not-found');
   if (target.id() === rootJsx.id()) return fail('target-is-root');
+  if (targetInsideOpaqueExpr(target, rootJsx)) return fail('unsupported-conditional');
 
   const localScope = collectLocalScope(fnNode);
   const analysis = analyzeFreeVars(target, localScope, req.newName);
   if (analysis.referencesNewName) return fail('cyclic');
+  if (analysis.shadowConflict) return fail('unsupported-shadowing');
 
   const props = resolveTypes(req, localScope, analysis.props);
 
@@ -185,6 +187,22 @@ function findRootJsx(fnNode: SgNode): SgNode | null {
   return found;
 }
 
+/**
+ * True when the target sits inside an opaque expression between it and the root
+ * ({cond && <x/>}, a ternary, a `.map` callback). component-outline carries
+ * these as opaque `expr` nodes, so a usage placed inside one is invisible to the
+ * round-trip check. Reject up front with a clear reason instead of letting the
+ * verify gate fail with a vague `verify-usage-missing`.
+ */
+function targetInsideOpaqueExpr(target: SgNode, rootJsx: SgNode): boolean {
+  let cur = target.parent();
+  while (cur && cur.id() !== rootJsx.id()) {
+    if (kindOf(cur) === 'jsx_expression') return true;
+    cur = cur.parent();
+  }
+  return false;
+}
+
 /** Outermost JSX node whose start line matches, searching within the root. */
 function findTargetJsx(rootJsx: SgNode, line: number): SgNode | null {
   let found: SgNode | null = null;
@@ -292,6 +310,9 @@ function isHookCall(value: SgNode | null): boolean {
 interface FreeVarAnalysis {
   props: string[];
   referencesNewName: boolean;
+  /** An enclosing-scope name is also bound by a nested scope inside the target;
+   *  free-vs-bound is then ambiguous without a real binder, so we fail-closed. */
+  shadowConflict: boolean;
 }
 
 function analyzeFreeVars(
@@ -317,22 +338,28 @@ function analyzeFreeVars(
   const props: string[] = [];
   const seen = new Set<string>();
   let referencesNewName = false;
+  let shadowConflict = false;
   const refVisit = (n: SgNode): void => {
-    if (kindOf(n) === 'identifier') {
+    const k = kindOf(n);
+    if (k === 'identifier' || k === 'shorthand_property_identifier') {
       const parent = n.parent();
       const isTag = parent ? TAG_PARENT_KINDS.has(kindOf(parent)) : false;
       const name = n.text();
       if (name === newName) referencesNewName = true;
-      if (!isTag && !boundWithin.has(name) && localScope.has(name) && !seen.has(name)) {
-        seen.add(name);
-        props.push(name);
+      if (!isTag && localScope.has(name)) {
+        if (boundWithin.has(name)) {
+          shadowConflict = true;
+        } else if (!seen.has(name)) {
+          seen.add(name);
+          props.push(name);
+        }
       }
     }
     n.children().forEach(refVisit);
   };
   refVisit(target);
 
-  return { props, referencesNewName };
+  return { props, referencesNewName, shadowConflict };
 }
 
 function resolveTypes(

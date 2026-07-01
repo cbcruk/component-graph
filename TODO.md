@@ -16,6 +16,11 @@
       ast-grep `range().index`와 JS 문자열 인덱스 정합성 확인 후 non-ASCII 소스 대응.
 - [ ] **full type-check 게이트** — 현재 ts-morph 진단 **델타** best-effort.
       tsconfig 인지(프로젝트 실제 컴파일 옵션 로드) + 신규 에러의 종류 판별로 강화.
+      알려진 약점: 타입 해석은 `strict:true`, 델타 게이트는 `strict:false`로 불일치 →
+      strict 전용 에러가 게이트를 통과. 두 패스의 strict 설정을 통일할 것.
+- [ ] **스코프 인지 타입 해석** — `resolveTypesWithTsMorph`가 파일 전체에서 이름으로
+      매칭(문서 순서 첫 매칭 승리)해 동명 바인딩이 있으면 잘못된 타입을 붙임.
+      참조 지점의 심볼로 해석하도록 교체. `any`→`unknown` 축약(cleanType)도 재검토.
 - [ ] **prop 순서/중복 정책 문서화** — free-var는 첫 등장 순서. 명시적으로 계약에 고정할지 결정.
 
 ## 추가 op (각각 단일 op·라운드트립 법칙 위에서)

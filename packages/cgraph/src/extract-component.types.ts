@@ -37,6 +37,8 @@ export type ExtractComponentFailure =
   | 'target-not-found'
   | 'target-is-root'
   | 'cyclic'
+  | 'unsupported-conditional'
+  | 'unsupported-shadowing'
   | 'verify-missing-new-component'
   | 'verify-prop-mismatch'
   | 'verify-missing-original'
