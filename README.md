@@ -1,5 +1,7 @@
 # component-graph
 
+**한국어** · [English](./README.en.md)
+
 에이전트를 위한 React/JSX 구조 도구 스택. 두 레이어로 구성되며, 아래층(B)이 위층(A)의 의존성이다.
 
 - **B — [`component-outline`](./packages/component-outline)**: ast-grep 기반 parse-now 구조 추출기. TSX → 컴포넌트 골격(JSON 계약 v0.1). *배송 가능한 reader.*
@@ -29,6 +31,7 @@
 
 - **Tier 0 (B)가 아는 것**: 컴포넌트, prop 시그니처(이름 + 미해결 typeRef), hook *호출*, JSX containment, source range, import/export surface.
 - **Tier 0가 모르는 것 (의도적으로 Tier 1로 미룸)**: cross-file data-flow, 타입 정합성, 분기(`{cond && <X/>}`는 opaque expr), dep-array 의미론. 이것들은 A 레이어가 **편집 대상 노드 하나에 대해서만** ts-morph로 즉석 계산한다.
+- **A가 산출하는 것**: 검증된 `TextEdit[]`. `applyEditsToFile`로 atomic·fail-closed 디스크 적용(임시 파일 → rename, 실패 시 원본 불변, 디스크 재해시로 stale 재확인), 또는 `cgraph` CLI(dry-run 기본 / `--write`)로 실행.
 
 ## 설계 원칙 (load-bearing)
 
@@ -44,7 +47,7 @@
 | 패키지 | 레이어 | 역할 |
 |---|---|---|
 | [`component-outline`](./packages/component-outline) | B (Tier 0) | TSX → outline JSON 계약 v0.1. CLI + 순수 `extract(file, code)`. |
-| [`cgraph`](./packages/cgraph) | A (Tier 1) | ephemeral graph lens + 라운드트립 법칙 + 마퀴 op `extractComponent`. |
+| [`cgraph`](./packages/cgraph) | A (Tier 1) | ephemeral graph lens + 라운드트립 법칙 + 마퀴 op `extractComponent` + atomic 디스크 적용(`applyEditsToFile`) + `cgraph` CLI(dry-run/`--write`/`--json`). |
 
 ## 빠른 시작
 
