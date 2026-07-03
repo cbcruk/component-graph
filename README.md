@@ -56,8 +56,17 @@ pnpm test           # 전체 테스트
 # B: 파일 구조를 JSON으로
 pnpm --filter component-outline dev packages/component-outline/fixtures/a.tsx --json
 
-# A: JSX 서브트리를 새 컴포넌트로 추출 (라이브러리)
-#   extractComponent({ file, code, component: 'Card', targetLine: 12, newName: 'Count' })
+# A: JSX 서브트리를 새 컴포넌트로 추출 (CLI)
+#   dry-run — diff만 보여주고 파일은 건드리지 않음 (기본)
+pnpm --filter cgraph dev extract packages/cgraph/fixtures/card.tsx \
+  --component Card --line 12 --name Count
+#   --write 로 디스크에 atomic 적용 (stale 재확인·fail-closed), --json 은 기계 판독 결과
+pnpm --filter cgraph dev extract packages/cgraph/fixtures/card.tsx \
+  --component Card --line 12 --name Count --write
+
+# A: 라이브러리로도 사용 가능
+#   const r = extractComponent({ file, code, component: 'Card', targetLine: 12, newName: 'Count' })
+#   if (r.ok) applyEditsToFile({ file, edits: r.edits, expectedHash: hashSource(code) })
 ```
 
 ### 예시 — `extractComponent`

@@ -5,10 +5,10 @@
 
 ## 우선순위 높음 — op를 실제로 쓸 수 있게
 
-- [ ] **편집 디스크 적용** — `extractComponent`의 `TextEdit[]`를 파일에 실제 반영하는 `applyEdits(file)`.
-      fail-closed·atomic 유지 (임시 파일 → rename, 실패 시 원본 불변). `hash`로 stale 재확인.
-- [ ] **cgraph CLI** — `cgraph extract <file> --component <Name> --line <N> --name <New> [--write]`.
-      `--write` 없으면 diff/미리보기만 (dry-run 기본).
+- [x] **편집 디스크 적용** — `extractComponent`의 `TextEdit[]`를 파일에 실제 반영하는 `applyEditsToFile`.
+      fail-closed·atomic 유지 (임시 파일 → rename, 실패 시 원본 불변). 디스크 재해시로 stale 재확인.
+- [x] **cgraph CLI** — `cgraph extract <file> --component <Name> --line <N> --name <New> [--write] [--json]`.
+      `--write` 없으면 diff 미리보기만 (dry-run 기본). `--json`은 기계 판독 결과.
 
 ## 정직한 한계 해소 (현재 의도적으로 남긴 것)
 
@@ -43,5 +43,5 @@
 ## 참고 — 현재 상태 (완료)
 
 - `packages/component-outline` (B): parse-now 추출기 + CLI + 계약 v0.1. 19 tests (class 컴포넌트 + 리네임 re-export 포함).
-- `packages/cgraph` (A): graph lens + projection + 라운드트립 법칙 + `extractComponent`(Tier 1, fail-closed, 정직한 부분집합). 24 tests.
+- `packages/cgraph` (A): graph lens + projection + 라운드트립 법칙 + `extractComponent`(Tier 1, fail-closed, 정직한 부분집합) + `applyEditsToFile`(atomic 디스크 적용) + `cgraph` CLI(dry-run/`--write`/`--json`). 35 tests.
 - 원칙: honest-partial · parse-now/no-index · no cross-file · graph는 ephemeral(TSX가 진실) · checked & atomic.

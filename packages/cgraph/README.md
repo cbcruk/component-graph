@@ -56,6 +56,27 @@ The moved subtree is the **verbatim source slice** — so an element containing
 `{show && items.length}` moves whole, its opaque interior byte-for-byte intact,
 while `show`/`items` still surface as typed props.
 
+## Applying the edit
+
+`extractComponent` only *computes* `TextEdit`s — it never touches disk.
+`applyEditsToFile` is the atomic, fail-closed writer: it re-reads the file,
+re-hashes it against `expectedHash` (the stale re-check — offsets are only valid
+against that exact source), applies the edits, and `rename`s a temp file over
+the original so a crash mid-write leaves the original untouched.
+
+```ts
+const r = extractComponent({ file, code, component: 'Card', targetLine: 12, newName: 'Count' });
+if (r.ok) applyEditsToFile({ file, edits: r.edits, expectedHash: hashSource(code) });
+```
+
+The `cgraph` CLI wraps both — dry-run by default (prints a line-anchored diff),
+`--write` to apply, `--json` for a machine-readable result:
+
+```sh
+cgraph extract Card.tsx --component Card --line 12 --name Count          # preview
+cgraph extract Card.tsx --component Card --line 12 --name Count --write  # apply
+```
+
 ## The graph model
 
 An addressable, ephemeral view of one component's JSX subtree
