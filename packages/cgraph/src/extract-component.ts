@@ -1,7 +1,7 @@
-import { createHash } from 'node:crypto';
 import { parse, Lang, type SgNode } from '@ast-grep/napi';
 import { Project, ts } from 'ts-morph';
 import { extract, type SkelNode } from 'component-outline';
+import { applyTextEdits, hashSource } from './apply-edits.js';
 import type {
   ExtractComponentFailure,
   ExtractComponentRequest,
@@ -28,8 +28,6 @@ const TAG_PARENT_KINDS = new Set([
 ]);
 
 const kindOf = (node: SgNode): string => String(node.kind());
-const sha = (code: string): string =>
-  createHash('sha256').update(code).digest('hex').slice(0, 16);
 const fail = (reason: ExtractComponentFailure): ExtractComponentResult => ({
   ok: false,
   reason,
@@ -45,7 +43,7 @@ const fail = (reason: ExtractComponentFailure): ExtractComponentResult => ({
 export function extractComponent(
   req: ExtractComponentRequest,
 ): ExtractComponentResult {
-  const hash = sha(req.code);
+  const hash = hashSource(req.code);
   if (req.expectedHash && req.expectedHash !== hash) return fail('stale-hash');
   if (!isPascalIdentifier(req.newName)) return fail('invalid-name');
 
@@ -81,7 +79,7 @@ export function extractComponent(
     { start: targetStart, end: targetEnd, text: usage },
     { start: insertAt, end: insertAt, text: `\n\n${newComponent}\n` },
   ];
-  const output = applyEdits(req.code, edits);
+  const output = applyTextEdits(req.code, edits);
 
   const verdict = verify(req.code, output, req.component, req.newName, props);
   if (verdict) return fail(verdict);
@@ -93,11 +91,11 @@ export function extractComponent(
     usage,
     props,
     edits,
-    hash: sha(output),
+    hash: hashSource(output),
   };
 }
 
-export { sha as hashSource };
+export { hashSource };
 
 function isPascalIdentifier(name: string): boolean {
   return /^[A-Z][A-Za-z0-9]*$/.test(name);
@@ -444,15 +442,6 @@ function buildNewComponent(
     `function ${name}({ ${destructure} }: {\n${typeLines}\n}) {\n` +
     `  return (\n${body}\n  );\n}`
   );
-}
-
-function applyEdits(code: string, edits: TextEdit[]): string {
-  const ordered = [...edits].sort((a, b) => b.start - a.start);
-  let out = code;
-  for (const edit of ordered) {
-    out = out.slice(0, edit.start) + edit.text + out.slice(edit.end);
-  }
-  return out;
 }
 
 function verify(

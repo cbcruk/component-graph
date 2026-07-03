@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "description": "A layer: ephemeral graph lens over an outline + checked JSX projection (round-trip law)",
   "type": "module",
+  "bin": {
+    "cgraph": "./dist/cli.js"
+  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -16,6 +19,7 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "dev": "tsx src/cli.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },
