@@ -1,0 +1,12 @@
+{
+  "name": "evals",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Agent-in-the-loop eval harness + render-based behavioral-equivalence oracle",
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "typescript": "^5.9.3"
+  }
+}

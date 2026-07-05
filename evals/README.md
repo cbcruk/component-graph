@@ -104,8 +104,31 @@ with neither's downside.
 
 Caveat: v1 of the gate is static (compile + structure). It does not yet prove
 the *moved subtree* is behaviorally unchanged — a determined edit that
-typechecks but swaps a prop value would pass. A render-based equivalence check
-(`renderToStaticMarkup` of before/after over sample props) is the next step.
+typechecks but swaps a prop value would pass.
+
+## Run 4 — behavioral equivalence (v2)
+
+[`render-equiv.mjs`](./render-equiv.mjs) closes that gap: it transpiles the
+original and the candidate, renders the enclosing component with sample props
+via `react-dom/server`, and compares the HTML. Behavior-preserving edits render
+byte-identical output; a typechecks-but-wrong edit does not.
+
+| edit | v1 static gate | v2 render-equiv |
+|---|---|---|
+| `CountBadge` (valid) | accept | equivalent ✓ |
+| `Row` (valid) | accept | equivalent ✓ |
+| `Wrap` / shadowing (valid) | accept | equivalent ✓ |
+| `<CountBadge count={count + 1} />` (typechecks, wrong) | **accept ✗** | **not equivalent ✓ (caught)** |
+
+The last row is the point: an edit that passes `tsc` and every structural check —
+so v1 accepts it — renders `<span class="count">4</span>` where the original
+renders `3`. v2 catches it. **v2 is strictly stronger than v1.**
+
+Honest-partial, as always: v2 proves equivalence only for the prop samples given
+and only for self-contained components (no external imports, context, or
+effects). It lives in `evals/` (not `cgraph` core) because executing React pulls
+in `react`/`react-dom` — a runtime cost the dep-light editor shouldn't carry. It
+is a measurement oracle, not an editing primitive.
 
 ### Cost & caveats
 

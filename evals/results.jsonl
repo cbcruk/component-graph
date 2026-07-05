@@ -30,3 +30,7 @@
 {"ts":"2026-07-05T13:03:56Z","task":"extract-row-opaque","arm":"C-hybrid","trial":1,"model":"claude-opus-4-8","outcome":"pass","result":{"ok":true,"newComponent":"Row"}}
 {"ts":"2026-07-05T13:03:56Z","task":"extract-collision","arm":"C-hybrid","trial":1,"model":"claude-opus-4-8","outcome":"safe-reject:introduces-type-errors","result":{"ok":false,"reason":"introduces-type-errors"}}
 {"ts":"2026-07-05T13:03:56Z","task":"extract-shadow","arm":"C-hybrid","trial":1,"model":"claude-opus-4-8","outcome":"pass","result":{"ok":true,"newComponent":"Wrap"}}
+{"ts":"2026-07-05T13:11:06Z","task":"extract-count-badge","arm":"C-hybrid","check":"render-equiv-v2","v1StaticAccept":true,"v2BehaviorEquivalent":true}
+{"ts":"2026-07-05T13:11:06Z","task":"extract-row-opaque","arm":"C-hybrid","check":"render-equiv-v2","v1StaticAccept":true,"v2BehaviorEquivalent":true}
+{"ts":"2026-07-05T13:11:06Z","task":"extract-shadow","arm":"C-hybrid","check":"render-equiv-v2","v1StaticAccept":true,"v2BehaviorEquivalent":true}
+{"ts":"2026-07-05T13:11:06Z","task":"extract-count-badge-BUG","arm":"C-hybrid","check":"render-equiv-v2","v1StaticAccept":true,"v2BehaviorEquivalent":false}
