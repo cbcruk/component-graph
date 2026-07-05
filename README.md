@@ -29,7 +29,7 @@ For lineage and detailed design see [`PROJECT_BRIEF.md`](./PROJECT_BRIEF.md); fo
 
 - **What Tier 0 (B) knows**: components, prop signatures (name + unresolved typeRef), hook *calls*, JSX containment, source ranges, the import/export surface.
 - **What Tier 0 doesn't know (deliberately deferred to Tier 1)**: cross-file data-flow, type soundness, branches (`{cond && <X/>}` is an opaque expr), dep-array semantics. The A layer computes these on the fly with ts-morph **for the single node being edited only**.
-- **What A produces**: verified `TextEdit[]`. Applied to disk atomically and fail-closed via `applyEditsToFile` (temp file → rename, original untouched on failure, stale re-checked by re-hashing the file), or run through the `cgraph` CLI (dry-run by default / `--write`).
+- **What A produces**: verified `TextEdit[]` from an **invertible op pair** — `extractComponent` and its exact inverse `inlineComponent`, which together satisfy the round-trip law (`inline(extract(x)) === x`, byte-for-byte). Edits are applied to disk atomically and fail-closed via `applyEditsToFile` (temp file → rename, original untouched on failure, stale re-checked by re-hashing the file), or run through the `cgraph` CLI (dry-run by default / `--write`).
 
 ## Design principles (load-bearing)
 
