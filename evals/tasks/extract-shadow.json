@@ -1,0 +1,7 @@
+{
+  "id": "extract-shadow",
+  "fixture": "fixtures/shadow.tsx",
+  "instruction": "Extract the `<div className=\"wrap\">...</div>` element into a new top-level sibling component named `Wrap`, promoting referenced free variables to typed props.",
+  "target": { "enclosing": "Panel", "line": 4, "newName": "Wrap", "propNames": ["x"], "bodyTag": "div" },
+  "adversarial": "shadowing"
+}
