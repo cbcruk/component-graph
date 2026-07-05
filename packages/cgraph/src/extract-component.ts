@@ -2,6 +2,18 @@ import { parse, Lang, type SgNode } from '@ast-grep/napi';
 import { Project, ts } from 'ts-morph';
 import { extract, type SkelNode } from 'component-outline';
 import { applyTextEdits, hashSource } from './apply-edits.js';
+import {
+  FUNCTION_BOUNDARY,
+  TAG_PARENT_KINDS,
+  TARGET_KINDS,
+  collectPatternNames,
+  findRootJsx,
+  isJsxContainer,
+  kindOf,
+  locateComponentFn,
+  unwrapParen,
+} from './ast-utils.js';
+import { introducesTypeErrors } from './type-gate.js';
 import type {
   ExtractComponentFailure,
   ExtractComponentRequest,
@@ -11,23 +23,6 @@ import type {
   TextEdit,
 } from './extract-component.types.js';
 
-const FUNCTION_BOUNDARY = new Set([
-  'arrow_function',
-  'function_declaration',
-  'function_expression',
-  'method_definition',
-]);
-// Only element containers are extractable: a bare `{expr}` or text node would
-// produce an invalid `return ( {expr} )`. An element that *contains* opaque
-// exprs is fine — it moves whole, interior untouched.
-const TARGET_KINDS = new Set(['jsx_element', 'jsx_self_closing_element']);
-const TAG_PARENT_KINDS = new Set([
-  'jsx_opening_element',
-  'jsx_self_closing_element',
-  'jsx_closing_element',
-]);
-
-const kindOf = (node: SgNode): string => String(node.kind());
 const fail = (reason: ExtractComponentFailure): ExtractComponentResult => ({
   ok: false,
   reason,
@@ -77,7 +72,10 @@ export function extractComponent(
 
   const edits: TextEdit[] = [
     { start: targetStart, end: targetEnd, text: usage },
-    { start: insertAt, end: insertAt, text: `\n\n${newComponent}\n` },
+    // No trailing newline: the file's own trailing newline follows the insert,
+    // so the new component ends cleanly (no double blank line at EOF). This also
+    // makes `inline` a byte-exact inverse — the extract/inline round-trip law.
+    { start: insertAt, end: insertAt, text: `\n\n${newComponent}` },
   ];
   const output = applyTextEdits(req.code, edits);
 
@@ -125,64 +123,11 @@ function declaredNames(node: SgNode): string[] {
   return names;
 }
 
-function locateComponentFn(root: SgNode, name: string): SgNode | null {
-  for (const node of root.children()) {
-    const children = kindOf(node) === 'export_statement' ? node.children() : [node];
-    for (const child of children) {
-      const k = kindOf(child);
-      if (k === 'function_declaration' && child.field('name')?.text() === name) {
-        return child;
-      }
-      if (k === 'lexical_declaration' || k === 'variable_declaration') {
-        for (const d of child.children()) {
-          if (kindOf(d) !== 'variable_declarator') continue;
-          if (d.field('name')?.text() !== name) continue;
-          const value = d.field('value');
-          if (value && kindOf(value) === 'arrow_function') return value;
-        }
-      }
-    }
-  }
-  return null;
-}
-
 function enclosingRangeEnd(root: SgNode, name: string): number {
   for (const node of root.children()) {
     if (declaredNames(node).includes(name)) return node.range().end.index;
   }
   return root.range().end.index;
-}
-
-function findRootJsx(fnNode: SgNode): SgNode | null {
-  const body = fnNode.field('body');
-  if (!body) return null;
-  if (kindOf(body) !== 'statement_block') {
-    const jsx = unwrapParen(body);
-    return isJsxContainer(jsx) ? jsx : null;
-  }
-  let found: SgNode | null = null;
-  const visit = (n: SgNode): void => {
-    if (found) return;
-    if (kindOf(n) === 'return_statement') {
-      const arg = n.children().find((c) => c.isNamed());
-      if (arg) {
-        const jsx = unwrapParen(arg);
-        if (isJsxContainer(jsx)) found = jsx;
-      }
-      return;
-    }
-    for (const c of n.children()) {
-      if (found) return;
-      if (FUNCTION_BOUNDARY.has(kindOf(c))) continue;
-      visit(c);
-    }
-  };
-  for (const c of body.children()) {
-    if (found) break;
-    if (FUNCTION_BOUNDARY.has(kindOf(c))) continue;
-    visit(c);
-  }
-  return found;
 }
 
 /**
@@ -214,21 +159,6 @@ function findTargetJsx(rootJsx: SgNode, line: number): SgNode | null {
   };
   visit(rootJsx);
   return found;
-}
-
-function unwrapParen(node: SgNode): SgNode {
-  let current = node;
-  while (kindOf(current) === 'parenthesized_expression') {
-    const inner = current.children().find((c) => c.isNamed());
-    if (!inner) break;
-    current = inner;
-  }
-  return current;
-}
-
-function isJsxContainer(node: SgNode): boolean {
-  const k = kindOf(node);
-  return k === 'jsx_element' || k === 'jsx_self_closing_element';
 }
 
 function collectLocalScope(fnNode: SgNode): Map<string, PropOrigin> {
@@ -264,34 +194,6 @@ function collectLocalScope(fnNode: SgNode): Map<string, PropOrigin> {
     }
   }
   return scope;
-}
-
-function collectPatternNames(pattern: SgNode | null): string[] {
-  if (!pattern) return [];
-  const k = kindOf(pattern);
-  if (k === 'identifier' || k === 'shorthand_property_identifier_pattern') {
-    return [pattern.text()];
-  }
-  const names: string[] = [];
-  const visit = (n: SgNode): void => {
-    const nk = kindOf(n);
-    if (nk === 'shorthand_property_identifier_pattern') {
-      names.push(n.text());
-    } else if (nk === 'pair_pattern') {
-      collectPatternNames(n.field('value')).forEach((x) => names.push(x));
-    } else if (nk === 'object_assignment_pattern') {
-      collectPatternNames(n.field('left')).forEach((x) => names.push(x));
-    } else if (nk === 'rest_pattern') {
-      const id = n.children().find((c) => kindOf(c) === 'identifier');
-      if (id) names.push(id.text());
-    } else if (nk === 'identifier' && n.id() !== pattern.id()) {
-      names.push(n.text());
-    } else {
-      n.children().forEach(visit);
-    }
-  };
-  pattern.children().forEach(visit);
-  return names;
 }
 
 function isHookCall(value: SgNode | null): boolean {
@@ -480,35 +382,3 @@ function containsComponentTag(node: SkelNode, tag: string): boolean {
   return false;
 }
 
-/**
- * Fail-closed type gate: the edit must not introduce new semantic errors.
- * Uses a diagnostic-count delta so the file's pre-existing errors (missing
- * imports, absent React types) cancel out — only errors the extraction *adds*
- * are caught. Returns false (skips the gate) if diagnostics can't be computed.
- */
-function introducesTypeErrors(before: string, after: string): boolean {
-  const beforeCount = semanticErrorCount(before);
-  const afterCount = semanticErrorCount(after);
-  if (beforeCount < 0 || afterCount < 0) return false;
-  return afterCount > beforeCount;
-}
-
-function semanticErrorCount(code: string): number {
-  try {
-    const project = new Project({
-      useInMemoryFileSystem: true,
-      compilerOptions: {
-        jsx: ts.JsxEmit.Preserve,
-        strict: false,
-        noEmit: true,
-        skipLibCheck: true,
-      },
-    });
-    project.createSourceFile('__check__.tsx', code);
-    return project
-      .getPreEmitDiagnostics()
-      .filter((d) => d.getCategory() === ts.DiagnosticCategory.Error).length;
-  } catch {
-    return -1;
-  }
-}

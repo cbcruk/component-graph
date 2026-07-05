@@ -1,0 +1,6 @@
+{
+  "id": "extract-row-opaque",
+  "fixture": "fixtures/list.tsx",
+  "instruction": "Extract the `<li className=\"row\">{show && items.length}</li>` element into a new top-level sibling component named `Row`, replacing the original with a single usage. The subtree references `show` and `items` (both only inside the `{show && items.length}` expression) — both must become typed props (`show: boolean`, `items: string[]`).",
+  "target": { "enclosing": "List", "line": 9, "newName": "Row", "propNames": ["show", "items"], "bodyTag": "li" }
+}

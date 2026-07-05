@@ -29,7 +29,7 @@ For lineage and detailed design see [`PROJECT_BRIEF.md`](./PROJECT_BRIEF.md); fo
 
 - **What Tier 0 (B) knows**: components, prop signatures (name + unresolved typeRef), hook *calls*, JSX containment, source ranges, the import/export surface.
 - **What Tier 0 doesn't know (deliberately deferred to Tier 1)**: cross-file data-flow, type soundness, branches (`{cond && <X/>}` is an opaque expr), dep-array semantics. The A layer computes these on the fly with ts-morph **for the single node being edited only**.
-- **What A produces**: verified `TextEdit[]`. Applied to disk atomically and fail-closed via `applyEditsToFile` (temp file → rename, original untouched on failure, stale re-checked by re-hashing the file), or run through the `cgraph` CLI (dry-run by default / `--write`).
+- **What A produces**: verified `TextEdit[]` from an **invertible op pair** — `extractComponent` and its exact inverse `inlineComponent`, which together satisfy the round-trip law (`inline(extract(x)) === x`, byte-for-byte). Edits are applied to disk atomically and fail-closed via `applyEditsToFile` (temp file → rename, original untouched on failure, stale re-checked by re-hashing the file), or run through the `cgraph` CLI (dry-run by default / `--write`).
 
 ## Design principles (load-bearing)
 
@@ -45,7 +45,7 @@ For lineage and detailed design see [`PROJECT_BRIEF.md`](./PROJECT_BRIEF.md); fo
 | Package | Layer | Role |
 |---|---|---|
 | [`component-outline`](./packages/component-outline) | B (Tier 0) | TSX → outline JSON contract v0.1. CLI + pure `extract(file, code)`. |
-| [`cgraph`](./packages/cgraph) | A (Tier 1) | ephemeral graph lens + the round-trip law + marquee op `extractComponent` + atomic disk apply (`applyEditsToFile`) + `cgraph` CLI (dry-run/`--write`/`--json`). |
+| [`cgraph`](./packages/cgraph) | A (Tier 1) | ephemeral graph lens + the round-trip law + the inverse op pair `extractComponent` ⇄ `inlineComponent` (byte-exact) + atomic disk apply (`applyEditsToFile`) + `cgraph` CLI (`extract`/`inline`, dry-run/`--write`/`--json`). |
 
 ## Quick start
 
@@ -64,6 +64,10 @@ pnpm --filter cgraph dev extract packages/cgraph/fixtures/card.tsx \
 #   --write applies to disk atomically (stale re-checked, fail-closed); --json emits a machine-readable result
 pnpm --filter cgraph dev extract packages/cgraph/fixtures/card.tsx \
   --component Card --line 12 --name Count --write
+
+# A: inline is the inverse — fold a single-usage component back into its call site
+pnpm --filter cgraph dev inline packages/cgraph/fixtures/card.tsx \
+  --component Card --target Count --write   # extract then inline == the original, byte-for-byte
 
 # A: also usable as a library
 #   const r = extractComponent({ file, code, component: 'Card', targetLine: 12, newName: 'Count' })
@@ -128,6 +132,13 @@ What the diff shows, and what it deliberately leaves alone:
 - **The original is rewired to a single usage** (`<Count count={count} />`) and the new component is inserted as a **sibling** of `Card`.
 - **Everything else stays byte-for-byte.** `const label`, `<header>{label}</header>`, and the `<section>` wrapper are untouched — only the target range and the insertion point are edited.
 - If any guard fails — `stale-hash`, `name-collision`, `cyclic`, the type gate, and so on — **no edit is produced** (fail-closed).
+
+`inlineComponent` is the exact inverse: it substitutes each prop reference in
+`Count`'s body with the argument the usage passed, drops the body back where the
+`<Count/>` was, and deletes the now-dead declaration. The two ops form a lens:
+**`extract` then `inline` reproduces the original byte-for-byte** (the GetPut
+round-trip law, checked as a property test) — which is what "bidirectional
+editor" actually means, made concrete on real source.
 
 ## Tech stack
 
