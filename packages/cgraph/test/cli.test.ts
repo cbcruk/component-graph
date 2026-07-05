@@ -114,12 +114,62 @@ describe('cgraph cli — extract', () => {
   it('exits non-zero on missing required flags', () => {
     const { code, err } = capture(['extract', file, '--name', 'Count']);
     expect(code).toBe(1);
-    expect(err).toContain('cgraph extract');
+    expect(err).toContain('extract <file>');
   });
 
   it('rejects an unknown subcommand', () => {
     const { code, err } = capture(['frobnicate']);
     expect(code).toBe(1);
     expect(err).toContain("unknown command 'frobnicate'");
+  });
+});
+
+describe('cgraph cli — inline', () => {
+  let dir: string;
+  let file: string;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'cgraph-cli-'));
+    file = join(dir, 'card.tsx');
+    writeFileSync(file, card);
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('extract --write then inline --write byte-restores the original (round-trip)', () => {
+    const ex = capture([
+      'extract', file, '--component', 'Card', '--line', '12', '--name', 'Count', '--write',
+    ]);
+    expect(ex.code).toBe(0);
+    expect(readFileSync(file, 'utf8')).not.toBe(card);
+
+    const inl = capture([
+      'inline', file, '--component', 'Card', '--target', 'Count', '--write',
+    ]);
+    expect(inl.code).toBe(0);
+    expect(inl.out).toContain('inlined Count');
+    expect(readFileSync(file, 'utf8')).toBe(card);
+  });
+
+  it('dry-runs by default: previews substitutions and leaves the file untouched', () => {
+    // First produce a file with an inlinable component.
+    capture(['extract', file, '--component', 'Card', '--line', '12', '--name', 'Count', '--write']);
+    const withCount = readFileSync(file, 'utf8');
+
+    const { code, out } = capture(['inline', file, '--component', 'Card', '--target', 'Count']);
+    expect(code).toBe(0);
+    expect(out).toContain('dry-run: inline Count');
+    expect(out).toContain('substitutions: count → count');
+    expect(out).toContain('Re-run with --write');
+    expect(readFileSync(file, 'utf8')).toBe(withCount);
+  });
+
+  it('exits non-zero and reports the reason on a refused inline', () => {
+    const { code, err } = capture(['inline', file, '--component', 'Card', '--target', 'Nope']);
+    expect(code).toBe(1);
+    expect(err).toContain('inline refused — target-not-found');
+    expect(readFileSync(file, 'utf8')).toBe(card);
   });
 });

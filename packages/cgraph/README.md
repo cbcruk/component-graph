@@ -56,6 +56,34 @@ The moved subtree is the **verbatim source slice** — so an element containing
 `{show && items.length}` moves whole, its opaque interior byte-for-byte intact,
 while `show`/`items` still surface as typed props.
 
+## `inlineComponent` — the inverse
+
+```ts
+inlineComponent({ file, code, component: 'Card', target: 'Count' })
+// -> { ok: true, output, inlined, substitutions, edits, hash }
+```
+
+The exact inverse of extraction. It folds a single-usage, top-level component
+back into its call site:
+
+1. **Substitute** — each prop reference in the target's body is replaced by the
+   argument the usage passed (`count={count}` → the body's `count` refs become
+   `count`; `label="hi"` → `{"hi"}`; a boolean shorthand → `true`). Free vars in
+   the body that aren't props are left alone.
+2. **Fold & delete** — the substituted body replaces the `<Target/>` usage, and
+   the now-dead declaration is removed (with its leading blank line).
+3. **Fail-closed** — refuses anything outside the honest subset: more than one
+   usage (`not-single-usage`), an `export`ed target (`unsupported-exported-target`
+   — removing it could break other files, which the no-cross-file rule forbids
+   reasoning about), an arrow/`const` target, a `{...spread}` or children on the
+   usage, a prop the usage doesn't pass, or a prop shadowed inside the body.
+
+**The round-trip law.** `extract` and `inline` form a lens: for a subtree the
+honest subset covers, `inline(extract(x)) === x` **byte-for-byte** — verified as
+a property test ([`inline-component.test.ts`](./test/inline-component.test.ts)).
+This is the GetPut law from the brief, now proven at the op level rather than
+just asserted.
+
 ## Applying the edit
 
 `extractComponent` only *computes* `TextEdit`s — it never touches disk.
@@ -75,6 +103,7 @@ The `cgraph` CLI wraps both — dry-run by default (prints a line-anchored diff)
 ```sh
 cgraph extract Card.tsx --component Card --line 12 --name Count          # preview
 cgraph extract Card.tsx --component Card --line 12 --name Count --write  # apply
+cgraph inline  Card.tsx --component Card --target Count --write          # the inverse
 ```
 
 ## The graph model

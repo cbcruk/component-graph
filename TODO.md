@@ -25,8 +25,8 @@
 
 ## 추가 op (각각 단일 op·라운드트립 법칙 위에서)
 
-- [ ] **`inlineComponent`** — `extractComponent`의 역연산. 단일 usage를 원본 자리로 되돌리기.
-      GetPut/PutGet 쌍으로 두 op를 서로 검증 (extract → inline == identity).
+- [x] **`inlineComponent`** — `extractComponent`의 역연산. 단일 usage를 원본 자리로 되돌리기.
+      GetPut 쌍으로 두 op를 서로 검증 (extract → inline == identity, **byte-exact**). prop 참조를 인자 표현식으로 치환, dead 선언 삭제. fail-closed(비단일 usage·export된 target·arrow target·shadowing 등 거부).
 - [ ] **`bindProp` / `renameProp`** — checked semantic patch 예시 하나 더 (브리프 §7 `bindProp` 언급).
 - [ ] **`extractComponent` 대상 선택 개선** — line 기반 외에 graph node id(Task 3 preorder id) 기반 선택.
       graph id ↔ SgNode range 매핑을 정합적으로.
@@ -43,5 +43,5 @@
 ## 참고 — 현재 상태 (완료)
 
 - `packages/component-outline` (B): parse-now 추출기 + CLI + 계약 v0.1. 19 tests (class 컴포넌트 + 리네임 re-export 포함).
-- `packages/cgraph` (A): graph lens + projection + 라운드트립 법칙 + `extractComponent`(Tier 1, fail-closed, 정직한 부분집합) + `applyEditsToFile`(atomic 디스크 적용) + `cgraph` CLI(dry-run/`--write`/`--json`). 35 tests.
+- `packages/cgraph` (A): graph lens + projection + 라운드트립 법칙 + `extractComponent` ⇄ `inlineComponent`(byte-exact 역연산 쌍, Tier 1, fail-closed, 정직한 부분집합) + `applyEditsToFile`(atomic 디스크 적용) + `cgraph` CLI(`extract`/`inline`, dry-run/`--write`/`--json`). 공유 AST 유틸(`ast-utils`)·타입 게이트(`type-gate`)로 두 op가 공유. 49 tests.
 - 원칙: honest-partial · parse-now/no-index · no cross-file · graph는 ephemeral(TSX가 진실) · checked & atomic.
