@@ -26,3 +26,16 @@
 {"ts":"2026-07-05T11:44:00Z","task":"extract-shadow","arm":"A-freehand","trial":6,"model":"claude-opus-4-8","outcome":"pass","result":{"pass":true,"failureMode":null,"checks":{"parses":true,"hasEnclosing":true,"hasNewComponent":true,"usedOnce":true,"hasProps":true,"faithfulBody":true,"noNewTypeErrors":true}}}
 {"ts":"2026-07-05T11:44:00Z","task":"extract-shadow","arm":"B-tool","trial":1,"model":"claude-opus-4-8","outcome":"safe-refusal:unsupported-shadowing","result":{"toolRefused":true,"reason":"unsupported-shadowing","falseRefusal":true}}
 {"ts":"2026-07-05T11:44:00Z","task":"extract-shadow","arm":"B-tool","trial":2,"model":"claude-opus-4-8","outcome":"safe-refusal:unsupported-shadowing","result":{"toolRefused":true,"reason":"unsupported-shadowing","falseRefusal":true}}
+{"ts":"2026-07-05T13:03:56Z","task":"extract-count-badge","arm":"C-hybrid","trial":1,"model":"claude-opus-4-8","outcome":"pass","result":{"ok":true,"newComponent":"CountBadge"}}
+{"ts":"2026-07-05T13:03:56Z","task":"extract-row-opaque","arm":"C-hybrid","trial":1,"model":"claude-opus-4-8","outcome":"pass","result":{"ok":true,"newComponent":"Row"}}
+{"ts":"2026-07-05T13:03:56Z","task":"extract-collision","arm":"C-hybrid","trial":1,"model":"claude-opus-4-8","outcome":"safe-reject:introduces-type-errors","result":{"ok":false,"reason":"introduces-type-errors"}}
+{"ts":"2026-07-05T13:03:56Z","task":"extract-shadow","arm":"C-hybrid","trial":1,"model":"claude-opus-4-8","outcome":"pass","result":{"ok":true,"newComponent":"Wrap"}}
+{"ts":"2026-07-05T13:11:06Z","task":"extract-count-badge","arm":"C-hybrid","check":"render-equiv-v2","v1StaticAccept":true,"v2BehaviorEquivalent":true}
+{"ts":"2026-07-05T13:11:06Z","task":"extract-row-opaque","arm":"C-hybrid","check":"render-equiv-v2","v1StaticAccept":true,"v2BehaviorEquivalent":true}
+{"ts":"2026-07-05T13:11:06Z","task":"extract-shadow","arm":"C-hybrid","check":"render-equiv-v2","v1StaticAccept":true,"v2BehaviorEquivalent":true}
+{"ts":"2026-07-05T13:11:06Z","task":"extract-count-badge-BUG","arm":"C-hybrid","check":"render-equiv-v2","v1StaticAccept":true,"v2BehaviorEquivalent":false}
+{"ts":"2026-07-05T13:16:57Z","task":"extract-count-badge","arm":"C-gate","outcome":"accept","stage":"render"}
+{"ts":"2026-07-05T13:16:57Z","task":"extract-row-opaque","arm":"C-gate","outcome":"accept","stage":"render"}
+{"ts":"2026-07-05T13:16:57Z","task":"extract-shadow","arm":"C-gate","outcome":"accept","stage":"render"}
+{"ts":"2026-07-05T13:16:57Z","task":"extract-collision","arm":"C-gate","outcome":"reject:introduces-type-errors","stage":"static"}
+{"ts":"2026-07-05T13:16:57Z","task":"extract-count-badge-BUG","arm":"C-gate","outcome":"reject:behavior-changed","stage":"render"}

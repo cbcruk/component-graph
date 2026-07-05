@@ -2,5 +2,6 @@
   "id": "extract-count-badge",
   "fixture": "fixtures/card.tsx",
   "instruction": "Extract the `<span className=\"count\">{count}</span>` element into a new top-level sibling component named `CountBadge` that takes `count` as a typed prop, replacing the original with `<CountBadge count={count} />`. Keep everything else exactly as-is.",
-  "target": { "enclosing": "Card", "line": 12, "newName": "CountBadge", "propNames": ["count"], "bodyTag": "span" }
+  "target": { "enclosing": "Card", "line": 12, "newName": "CountBadge", "propNames": ["count"], "bodyTag": "span" },
+  "render": { "component": "Card", "propSamples": [{ "title": "Hi", "count": 3 }] }
 }

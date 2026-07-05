@@ -3,5 +3,6 @@
   "fixture": "fixtures/collision.tsx",
   "instruction": "Extract `<span className=\"count\">{count}</span>` into a new top-level sibling component named `Count`, passing `count` as a typed prop.",
   "target": { "enclosing": "Card", "line": 8, "newName": "Count", "propNames": ["count"], "bodyTag": "span" },
-  "adversarial": "name-collision"
+  "adversarial": "name-collision",
+  "render": { "component": "Card", "propSamples": [{ "count": 3 }] }
 }

@@ -45,7 +45,7 @@ For lineage and detailed design see [`PROJECT_BRIEF.md`](./PROJECT_BRIEF.md); fo
 | Package | Layer | Role |
 |---|---|---|
 | [`component-outline`](./packages/component-outline) | B (Tier 0) | TSX → outline JSON contract v0.1. CLI + pure `extract(file, code)`. |
-| [`cgraph`](./packages/cgraph) | A (Tier 1) | ephemeral graph lens + the round-trip law + the inverse op pair `extractComponent` ⇄ `inlineComponent` (byte-exact) + atomic disk apply (`applyEditsToFile`) + `cgraph` CLI (`extract`/`inline`, dry-run/`--write`/`--json`). |
+| [`cgraph`](./packages/cgraph) | A (Tier 1) | ephemeral graph lens + the round-trip law + the inverse op pair `extractComponent` ⇄ `inlineComponent` (byte-exact) + `verifyExtraction` (model-edits/tool-verifies gate) + atomic disk apply (`applyEditsToFile`) + `cgraph` CLI (`extract`/`inline`/`verify`). |
 
 ## Quick start
 

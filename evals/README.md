@@ -78,11 +78,75 @@ coverage.
 
 - The shadowing false-refusal is exactly the `scope-aware type resolution` item
   in [`TODO.md`](../TODO.md) — the eval now *quantifies* why it's worth doing.
-- A promising design the data suggests: **model edits, tool verifies.** Let the
-  agent produce the edit freehand (high coverage), then run it through the
-  tool's checks (`verify` gate / round-trip / `tsc`) to accept-or-reject
-  (safety). This keeps coverage *and* the guarantee — better than either arm
-  alone.
+- A design the data suggested — **model edits, tool verifies** — which is now
+  built and validated (below).
+
+## Run 3 — the hybrid arm (`C`)
+
+`verifyExtraction` (CLI: `cgraph verify <original> <candidate>`) is a fail-closed
+*acceptance gate*: the agent edits freehand (arm A's coverage), then the tool
+checks the result independently — compiles no worse than the original + a
+structurally sound extraction — and accepts or rejects. Running it on the same
+freehand outputs:
+
+| task | A — freehand | B — tool | C — hybrid |
+|---|---|---|---|
+| trivial extraction | pass | pass | **pass** |
+| free vars in `{show && …}` | pass | pass | **pass** |
+| name collision | **BROKEN** | refuse | **reject ✓** (caught the broken edit) |
+| shadowing | pass | refuse | **pass** (accepted the valid edit) |
+
+**Arm C strictly dominates.** It never ships broken code — the collision edit
+that arm A silently emitted is rejected as `introduces-type-errors` — *and* it
+keeps the coverage arm B loses, accepting the valid shadowing extraction the
+`extractComponent` op conservatively refuses. Model coverage + tool guarantee,
+with neither's downside.
+
+Caveat: v1 of the gate is static (compile + structure). It does not yet prove
+the *moved subtree* is behaviorally unchanged — a determined edit that
+typechecks but swaps a prop value would pass.
+
+## Run 4 — behavioral equivalence (v2)
+
+[`render-equiv.mjs`](./render-equiv.mjs) closes that gap: it transpiles the
+original and the candidate, renders the enclosing component with sample props
+via `react-dom/server`, and compares the HTML. Behavior-preserving edits render
+byte-identical output; a typechecks-but-wrong edit does not.
+
+| edit | v1 static gate | v2 render-equiv |
+|---|---|---|
+| `CountBadge` (valid) | accept | equivalent ✓ |
+| `Row` (valid) | accept | equivalent ✓ |
+| `Wrap` / shadowing (valid) | accept | equivalent ✓ |
+| `<CountBadge count={count + 1} />` (typechecks, wrong) | **accept ✗** | **not equivalent ✓ (caught)** |
+
+The last row is the point: an edit that passes `tsc` and every structural check —
+so v1 accepts it — renders `<span class="count">4</span>` where the original
+renders `3`. v2 catches it. **v2 is strictly stronger than v1.**
+
+Honest-partial, as always: v2 proves equivalence only for the prop samples given
+and only for self-contained components (no external imports, context, or
+effects). It lives in `evals/` (not `cgraph` core) because executing React pulls
+in `react`/`react-dom` — a runtime cost the dep-light editor shouldn't carry. It
+is a measurement oracle, not an editing primitive.
+
+## Run 5 — arm C is now the composed two-stage gate
+
+[`gate.mjs`](./gate.mjs) makes arm C's "accept" mean *behaviorally identical*:
+it runs v1 (static) then v2 (render), and accepts only if both pass. Two stages,
+two failure modes caught:
+
+| candidate | stage that fires | outcome |
+|---|---|---|
+| `CountBadge` / `Row` / `Wrap` (valid) | — | **accept** |
+| collision (duplicate decl) | static (v1) | reject: `introduces-type-errors` |
+| `count + 1` (typechecks, wrong output) | render (v2) | reject: `behavior-changed` |
+
+So arm C rejects **both** the edit that doesn't compile *and* the edit that
+compiles but renders the wrong thing — while accepting every valid extraction,
+including the shadowing case the `extractComponent` op refuses. This is the full
+"model edits, tool verifies" gate the eval set out to find: a strong model's
+coverage behind a guarantee that is now behavioral, not just structural.
 
 ### Cost & caveats
 

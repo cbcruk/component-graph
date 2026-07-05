@@ -106,6 +106,32 @@ cgraph extract Card.tsx --component Card --line 12 --name Count --write  # apply
 cgraph inline  Card.tsx --component Card --target Count --write          # the inverse
 ```
 
+## `verifyExtraction` — model edits, tool verifies
+
+`extractComponent` *produces* a checked edit. `verifyExtraction` *accepts or
+rejects* an edit some other agent produced freehand — without trusting it:
+
+```ts
+verifyExtraction({ file, original, candidate })
+// -> { ok: true, newComponent } | { ok: false, reason }
+```
+
+```sh
+cgraph verify original.tsx candidate.tsx    # accept: … | reject: <reason>
+```
+
+It is fail-closed: the candidate is accepted only if it compiles no worse than
+the original (`introduces-type-errors`) and is a structurally sound extraction —
+exactly one new, used, non-empty top-level component, nothing pre-existing lost.
+
+This is the hybrid the [`evals/`](../../evals) measurements pointed to. A strong
+model edits freehand (high coverage); the gate rejects the broken outputs
+(a name collision that duplicates a declaration → `introduces-type-errors`)
+while accepting valid edits the `extractComponent` op conservatively refuses
+(e.g. shadowing). In the eval it strictly dominates both freehand-alone and
+tool-alone. (v1 is a static gate; it does not yet prove the moved subtree is
+behaviorally unchanged — a render-based check is the next step.)
+
 ## The graph model
 
 An addressable, ephemeral view of one component's JSX subtree
