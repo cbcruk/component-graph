@@ -130,6 +130,24 @@ effects). It lives in `evals/` (not `cgraph` core) because executing React pulls
 in `react`/`react-dom` — a runtime cost the dep-light editor shouldn't carry. It
 is a measurement oracle, not an editing primitive.
 
+## Run 5 — arm C is now the composed two-stage gate
+
+[`gate.mjs`](./gate.mjs) makes arm C's "accept" mean *behaviorally identical*:
+it runs v1 (static) then v2 (render), and accepts only if both pass. Two stages,
+two failure modes caught:
+
+| candidate | stage that fires | outcome |
+|---|---|---|
+| `CountBadge` / `Row` / `Wrap` (valid) | — | **accept** |
+| collision (duplicate decl) | static (v1) | reject: `introduces-type-errors` |
+| `count + 1` (typechecks, wrong output) | render (v2) | reject: `behavior-changed` |
+
+So arm C rejects **both** the edit that doesn't compile *and* the edit that
+compiles but renders the wrong thing — while accepting every valid extraction,
+including the shadowing case the `extractComponent` op refuses. This is the full
+"model edits, tool verifies" gate the eval set out to find: a strong model's
+coverage behind a guarantee that is now behavioral, not just structural.
+
 ### Cost & caveats
 
 - ~19.6k tokens per subagent (dominated by system-prompt overhead), so cost

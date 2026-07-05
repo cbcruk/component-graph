@@ -42,25 +42,39 @@ function render(code, name, props) {
   return renderToStaticMarkup(React.createElement(Comp, props));
 }
 
-const [, , originalPath, candidatePath, component, samplesJson] = process.argv;
-const samples = JSON.parse(samplesJson);
-const original = readFileSync(originalPath, 'utf8');
-const candidate = readFileSync(candidatePath, 'utf8');
-
-const results = [];
-let equivalent = true;
-for (const props of samples) {
-  let before = null;
-  let after = null;
-  let error = null;
-  try {
-    before = render(original, component, props);
-    after = render(candidate, component, props);
-  } catch (e) {
-    error = e.message;
+/**
+ * Render `component` from both sources over every prop sample and compare the
+ * HTML. Returns { equivalent, results } — equivalent is false if any sample
+ * differs or either render throws.
+ */
+export function renderEquivalent({ original, candidate, component, samples }) {
+  const results = [];
+  let equivalent = true;
+  for (const props of samples) {
+    let before = null;
+    let after = null;
+    let error = null;
+    try {
+      before = render(original, component, props);
+      after = render(candidate, component, props);
+    } catch (e) {
+      error = e.message;
+    }
+    const eq = error === null && before === after;
+    if (!eq) equivalent = false;
+    results.push({ props, equivalent: eq, before, after, error });
   }
-  const eq = error === null && before === after;
-  if (!eq) equivalent = false;
-  results.push({ props, equivalent: eq, before, after, error });
+  return { equivalent, results };
 }
-console.log(JSON.stringify({ equivalent, results }));
+
+// CLI
+if (import.meta.url === `file://${process.argv[1]}`) {
+  const [, , originalPath, candidatePath, component, samplesJson] = process.argv;
+  const out = renderEquivalent({
+    original: readFileSync(originalPath, 'utf8'),
+    candidate: readFileSync(candidatePath, 'utf8'),
+    component,
+    samples: JSON.parse(samplesJson),
+  });
+  console.log(JSON.stringify(out));
+}
