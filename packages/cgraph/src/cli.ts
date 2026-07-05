@@ -4,6 +4,7 @@ import { relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { extractComponent, hashSource } from './extract-component.js';
 import { inlineComponent } from './inline-component.js';
+import { verifyExtraction } from './verify-extraction.js';
 import { applyEditsToFile } from './apply-edits.js';
 import type { TextEdit } from './extract-component.types.js';
 
@@ -47,6 +48,10 @@ const USAGE = `cgraph <command> [options]
       extract (extract then inline is the identity).
       --component  enclosing component that contains the single usage
       --target     the component to inline and remove
+
+  verify <original> <candidate> [--json]
+      Accept-or-reject a freehand extraction edit (model edits, tool verifies):
+      fail-closed on new type errors or an unsound extraction. No --write.
 
   Common:
       --write      apply the edit to disk (atomic, stale-checked). Default: dry-run.
@@ -244,10 +249,48 @@ function runInline(argv: string[], w: Writer): number {
   return 0;
 }
 
+function runVerify(argv: string[], w: Writer): number {
+  const files: string[] = [];
+  let json = false;
+  for (const arg of argv) {
+    if (arg === '--json') json = true;
+    else if (arg === '-h' || arg === '--help') {
+      w.err(USAGE);
+      return 0;
+    } else if (!arg.startsWith('-')) files.push(arg);
+  }
+  const [originalPath, candidatePath] = files;
+  if (!originalPath || !candidatePath) {
+    w.err(USAGE);
+    return 1;
+  }
+
+  let original: string;
+  let candidate: string;
+  try {
+    original = readFileSync(originalPath, 'utf8');
+    candidate = readFileSync(candidatePath, 'utf8');
+  } catch {
+    w.err(`cgraph: cannot read ${originalPath} / ${candidatePath}\n`);
+    return 1;
+  }
+
+  const result = verifyExtraction({ file: candidatePath, original, candidate });
+  if (json) {
+    w.out(`${JSON.stringify(result)}\n`);
+  } else if (result.ok) {
+    w.out(`accept: sound extraction of ${result.newComponent}\n`);
+  } else {
+    w.err(`reject: ${result.reason}\n`);
+  }
+  return result.ok ? 0 : 1;
+}
+
 export function run(argv: string[], w: Writer = defaultWriter): number {
   const [subcommand, ...rest] = argv;
   if (subcommand === 'extract') return runExtract(rest, w);
   if (subcommand === 'inline') return runInline(rest, w);
+  if (subcommand === 'verify') return runVerify(rest, w);
   if (subcommand === '-h' || subcommand === '--help' || subcommand === undefined) {
     w.err(USAGE);
     return subcommand === undefined ? 1 : 0;

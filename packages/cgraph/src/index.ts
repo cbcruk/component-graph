@@ -3,6 +3,7 @@ export { projectNode, projectGraph } from './project.js';
 export { roundtrip, type RoundtripResult } from './roundtrip.js';
 export { extractComponent, hashSource } from './extract-component.js';
 export { inlineComponent } from './inline-component.js';
+export { verifyExtraction } from './verify-extraction.js';
 export {
   applyEditsToFile,
   applyTextEdits,
@@ -11,4 +12,5 @@ export {
 } from './apply-edits.js';
 export * from './extract-component.types.js';
 export * from './inline-component.types.js';
+export * from './verify-extraction.types.js';
 export * from './graph.types.js';

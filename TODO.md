@@ -27,6 +27,8 @@
 
 - [x] **`inlineComponent`** — `extractComponent`의 역연산. 단일 usage를 원본 자리로 되돌리기.
       GetPut 쌍으로 두 op를 서로 검증 (extract → inline == identity, **byte-exact**). prop 참조를 인자 표현식으로 치환, dead 선언 삭제. fail-closed(비단일 usage·export된 target·arrow target·shadowing 등 거부).
+- [x] **`verifyExtraction` (model-edits/tool-verifies 하이브리드)** — 에이전트의 자유편집을 fail-closed 게이트로 수락/거부(컴파일 델타 + 구조 건전성). eval에서 arm A(맨손)·B(도구)를 **strictly dominate**: collision(깨진 편집) 거부 + shadowing(도구가 오거부하는 유효 편집) 수락. CLI `cgraph verify`. v1은 static 게이트 — moved subtree의 행위 동등성(render 기반)은 다음 단계.
+- [ ] **`verifyExtraction` v2** — `renderToStaticMarkup` before/after 비교로 행위 동등성까지 검증(타입은 통과하나 prop 값을 바꾼 편집 포착).
 - [ ] **`bindProp` / `renameProp`** — checked semantic patch 예시 하나 더 (브리프 §7 `bindProp` 언급).
 - [ ] **`extractComponent` 대상 선택 개선** — line 기반 외에 graph node id(Task 3 preorder id) 기반 선택.
       graph id ↔ SgNode range 매핑을 정합적으로.

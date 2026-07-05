@@ -26,3 +26,7 @@
 {"ts":"2026-07-05T11:44:00Z","task":"extract-shadow","arm":"A-freehand","trial":6,"model":"claude-opus-4-8","outcome":"pass","result":{"pass":true,"failureMode":null,"checks":{"parses":true,"hasEnclosing":true,"hasNewComponent":true,"usedOnce":true,"hasProps":true,"faithfulBody":true,"noNewTypeErrors":true}}}
 {"ts":"2026-07-05T11:44:00Z","task":"extract-shadow","arm":"B-tool","trial":1,"model":"claude-opus-4-8","outcome":"safe-refusal:unsupported-shadowing","result":{"toolRefused":true,"reason":"unsupported-shadowing","falseRefusal":true}}
 {"ts":"2026-07-05T11:44:00Z","task":"extract-shadow","arm":"B-tool","trial":2,"model":"claude-opus-4-8","outcome":"safe-refusal:unsupported-shadowing","result":{"toolRefused":true,"reason":"unsupported-shadowing","falseRefusal":true}}
+{"ts":"2026-07-05T13:03:56Z","task":"extract-count-badge","arm":"C-hybrid","trial":1,"model":"claude-opus-4-8","outcome":"pass","result":{"ok":true,"newComponent":"CountBadge"}}
+{"ts":"2026-07-05T13:03:56Z","task":"extract-row-opaque","arm":"C-hybrid","trial":1,"model":"claude-opus-4-8","outcome":"pass","result":{"ok":true,"newComponent":"Row"}}
+{"ts":"2026-07-05T13:03:56Z","task":"extract-collision","arm":"C-hybrid","trial":1,"model":"claude-opus-4-8","outcome":"safe-reject:introduces-type-errors","result":{"ok":false,"reason":"introduces-type-errors"}}
+{"ts":"2026-07-05T13:03:56Z","task":"extract-shadow","arm":"C-hybrid","trial":1,"model":"claude-opus-4-8","outcome":"pass","result":{"ok":true,"newComponent":"Wrap"}}

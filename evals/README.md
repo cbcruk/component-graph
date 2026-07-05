@@ -78,11 +78,34 @@ coverage.
 
 - The shadowing false-refusal is exactly the `scope-aware type resolution` item
   in [`TODO.md`](../TODO.md) — the eval now *quantifies* why it's worth doing.
-- A promising design the data suggests: **model edits, tool verifies.** Let the
-  agent produce the edit freehand (high coverage), then run it through the
-  tool's checks (`verify` gate / round-trip / `tsc`) to accept-or-reject
-  (safety). This keeps coverage *and* the guarantee — better than either arm
-  alone.
+- A design the data suggested — **model edits, tool verifies** — which is now
+  built and validated (below).
+
+## Run 3 — the hybrid arm (`C`)
+
+`verifyExtraction` (CLI: `cgraph verify <original> <candidate>`) is a fail-closed
+*acceptance gate*: the agent edits freehand (arm A's coverage), then the tool
+checks the result independently — compiles no worse than the original + a
+structurally sound extraction — and accepts or rejects. Running it on the same
+freehand outputs:
+
+| task | A — freehand | B — tool | C — hybrid |
+|---|---|---|---|
+| trivial extraction | pass | pass | **pass** |
+| free vars in `{show && …}` | pass | pass | **pass** |
+| name collision | **BROKEN** | refuse | **reject ✓** (caught the broken edit) |
+| shadowing | pass | refuse | **pass** (accepted the valid edit) |
+
+**Arm C strictly dominates.** It never ships broken code — the collision edit
+that arm A silently emitted is rejected as `introduces-type-errors` — *and* it
+keeps the coverage arm B loses, accepting the valid shadowing extraction the
+`extractComponent` op conservatively refuses. Model coverage + tool guarantee,
+with neither's downside.
+
+Caveat: v1 of the gate is static (compile + structure). It does not yet prove
+the *moved subtree* is behaviorally unchanged — a determined edit that
+typechecks but swaps a prop value would pass. A render-based equivalence check
+(`renderToStaticMarkup` of before/after over sample props) is the next step.
 
 ### Cost & caveats
 
