@@ -102,8 +102,13 @@ coverage.
 
 ### What this points to
 
-- The shadowing false-refusal is exactly the `scope-aware type resolution` item
-  in [`TODO.md`](../TODO.md) — the eval now *quantifies* why it's worth doing.
+- The shadowing false-refusal comes from the op's **free-variable analysis**
+  (`analyzeFreeVars` fails closed when a name is both free and bound inside the
+  target), not from type resolution. Both are scope work, which is why they get
+  conflated; they are separate functions and separate fixes.
+- Fixing it is not urgent, and the next run is why: the Gate already *accepts*
+  this edit. A better free-var analyser would improve arm B only — the arm this
+  data shows is dominated. See [ADR-0001](../docs/adr/0001-verification-is-the-product.md).
 - A design the data suggested — **model edits, tool verifies** — which is now
   built and validated (below).
 
