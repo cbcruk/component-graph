@@ -1,5 +1,5 @@
 import { parse, Lang, type SgNode } from '@ast-grep/napi';
-import { Project, ts } from 'ts-morph';
+import { ts } from 'ts-morph';
 import { extract, type SkelNode } from 'component-outline';
 import { applyTextEdits, hashSource } from './apply-edits.js';
 import {
@@ -14,6 +14,7 @@ import {
   unwrapParen,
 } from './ast-utils.js';
 import { checkTypeDelta } from './type-gate.js';
+import { createCheckFile } from './compiler-host.js';
 import type {
   ExtractComponentFailure,
   ExtractComponentRequest,
@@ -285,17 +286,8 @@ function resolveTypesWithTsMorph(
   req: ExtractComponentRequest,
   propNames: string[],
 ): Map<string, string> {
-  const project = new Project({
-    useInMemoryFileSystem: true,
-    compilerOptions: {
-      jsx: ts.JsxEmit.Preserve,
-      strict: true,
-      noEmit: true,
-      skipLibCheck: true,
-    },
-  });
   const file = req.file.endsWith('.tsx') ? req.file : 'in.tsx';
-  const sf = project.createSourceFile(file, req.code);
+  const sf = createCheckFile(file, req.code);
   const wanted = new Set(propNames);
   const out = new Map<string, string>();
 

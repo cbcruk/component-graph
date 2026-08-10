@@ -49,7 +49,9 @@ It lifts a JSX element subtree into a new sibling component:
    ts-morph diagnostic-delta type gate (`type-check-failed`). The gate is
    tri-state: if the checker cannot run at all, the op refuses with
    `type-check-unavailable` rather than treating an unverifiable edit as
-   clean. Cases outside the
+   clean. Type resolution and the gate share one compiler configuration
+   (`compiler-host.ts`), so a strict-only error cannot be resolved into a
+   generated prop type and then walk through a laxer gate. Cases outside the
    honest subset are rejected *up front* with a specific reason rather than a
    vague late gate failure: a target inside an opaque expression
    (`{cond && <x/>}`, ternary, `.map` callback) → `unsupported-conditional`; a

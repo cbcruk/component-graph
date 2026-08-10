@@ -1,4 +1,5 @@
-import { Project, ts } from 'ts-morph';
+import { ts } from 'ts-morph';
+import { createCheckFile } from './compiler-host.js';
 
 /**
  * The three things a caller can learn about an edit's effect on type errors.
@@ -35,17 +36,8 @@ export function checkTypeDelta(
 /** Semantic error count, or `null` if the compiler could not produce one. */
 function semanticErrorCount(code: string): number | null {
   try {
-    const project = new Project({
-      useInMemoryFileSystem: true,
-      compilerOptions: {
-        jsx: ts.JsxEmit.Preserve,
-        strict: false,
-        noEmit: true,
-        skipLibCheck: true,
-      },
-    });
-    project.createSourceFile('__check__.tsx', code);
-    return project
+    return createCheckFile('__check__.tsx', code)
+      .getProject()
       .getPreEmitDiagnostics()
       .filter((d) => d.getCategory() === ts.DiagnosticCategory.Error).length;
   } catch {

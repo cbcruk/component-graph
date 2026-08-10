@@ -22,8 +22,13 @@
             반환해, "검사 결과 깨끗함"과 "검사 자체를 못 함"이 구별되지 않았다(fail-open).
             `checkTypeDelta → 'clean' | 'dirty' | 'unknown'` 삼상태로 교체하고 세 op는
             `unknown`을 `type-check-unavailable`로 **거부**한다. `type-gate.test.ts` 신규(9 tests).
-      - [ ] **strict 통일은 남음** — 위 불일치 자체는 그대로. 게이트를 `strict:true`로 올리면
-            과잉 거부 위험이 있어 별도 평가 필요.
+      - [x] **strict 통일** — 두 패스가 `compiler-host.ts`의 `COMPILER_OPTIONS` 하나를 공유한다
+            (`strict: true`). 단 `noImplicitAny`는 **끈다**: React 타입이 없는 소스에서는 모든
+            intrinsic element가 TS7026, 모든 무주석 파라미터가 TS7006을 내는데, 이 잡음은
+            *엘리먼트 개수에 비례*해서 `<span>` 하나를 추가하는 정당한 freehand 편집까지
+            델타가 `dirty`로 거부한다(실제로 `verify-extraction` 테스트가 깨졌다).
+            `noImplicitAny`는 추론이 아니라 보고만 바꾸므로 prop 타입 해석은 영향 없음.
+            `strictNullChecks` 등 진짜 잡고 싶던 strict 전용 에러는 이제 걸린다.
 - [ ] **스코프 인지 타입 해석** — `resolveTypesWithTsMorph`가 파일 전체에서 이름으로
       매칭(문서 순서 첫 매칭 승리)해 동명 바인딩이 있으면 잘못된 타입을 붙임.
       참조 지점의 심볼로 해석하도록 교체. `any`→`unknown` 축약(cleanType)도 재검토.

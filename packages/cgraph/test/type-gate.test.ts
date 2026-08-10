@@ -32,6 +32,38 @@ describe('checkTypeDelta', () => {
     expect(checkTypeDelta(before, after)).toBe('clean');
   });
 
+  // The gate and prop-type resolution share one compiler configuration. These
+  // pin the two competing constraints that fix its shape: strict-only errors
+  // must be caught, and ambient noImplicitAny noise must not be.
+  describe('strict-only errors (missed by a non-strict gate)', () => {
+    it('catches a strictNullChecks violation', () => {
+      const after = `${CLEAN}const s: string = null;\n`;
+      expect(checkTypeDelta(CLEAN, after)).toBe('dirty');
+    });
+
+    it('catches access on a possibly-undefined value', () => {
+      const after = `${CLEAN}function f(x?: { a: number }) { return x.a; }\n`;
+      expect(checkTypeDelta(CLEAN, after)).toBe('dirty');
+    });
+  });
+
+  // With no React types in scope every intrinsic element raises TS7026. That
+  // noise scales with element count, so counting it would make the delta refuse
+  // any edit that adds an element — a valid freehand extraction among them.
+  describe('ambient JSX noise (must not scale the delta)', () => {
+    const JSX_BEFORE = `export function Card({ n }: { n: number }) {\n  return <div><span>{n}</span></div>;\n}\n`;
+
+    it('stays clean when an edit adds an intrinsic element', () => {
+      const after = `${JSX_BEFORE}function Orphan({ n }: { n: number }) { return <span>{n}</span>; }\n`;
+      expect(checkTypeDelta(JSX_BEFORE, after)).toBe('clean');
+    });
+
+    it('still catches a real error in a file full of JSX', () => {
+      const after = `${JSX_BEFORE}const bad: number = 'nope';\n`;
+      expect(checkTypeDelta(JSX_BEFORE, after)).toBe('dirty');
+    });
+  });
+
   // Regression: this branch previously returned `false` — i.e. "no new type
   // errors" — so an uncheckable edit was reported as clean and the gate opened.
   describe('when the checker cannot run', () => {
