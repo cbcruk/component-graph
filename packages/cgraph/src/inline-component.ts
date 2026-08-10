@@ -1,16 +1,16 @@
 import { parse, Lang, type SgNode } from '@ast-grep/napi';
 import { extract } from 'component-outline';
-import { applyTextEdits, hashSource } from './apply-edits.js';
+import { applyTextEdits, hashSource, type TextEdit } from './apply-edits.js';
 import {
-  TAG_PARENT_KINDS,
   TARGET_KINDS,
+  collectBoundNames,
   collectPatternNames,
   findRootJsx,
+  forEachReference,
   kindOf,
   locateComponentFn,
 } from './ast-utils.js';
-import { checkTypeDelta } from './type-gate.js';
-import type { TextEdit } from './extract-component.types.js';
+import { completeCheckedOp } from './checked-op.js';
 import type {
   InlineComponentFailure,
   InlineComponentRequest,
@@ -81,18 +81,22 @@ export function inlineComponent(
     { start: usageStart, end: usageEnd, text: inlined },
     { start: delStart, end: delEnd, text: '' },
   ];
-  const output = applyTextEdits(req.code, edits);
 
-  const verdict = verify(req.code, output, req.target);
-  if (verdict) return fail(verdict);
+  const outcome = completeCheckedOp(
+    req.code,
+    edits,
+    (output) => verifyInlineStructure(output, req.target),
+    { dirty: 'type-check-failed', unavailable: 'type-check-unavailable' },
+  );
+  if (!outcome.ok) return fail(outcome.reason);
 
   return {
     ok: true,
-    output,
+    output: outcome.output,
     inlined,
     substitutions: sub.substitutions,
     edits,
-    hash: hashSource(output),
+    hash: outcome.hash,
   };
 }
 
@@ -212,49 +216,29 @@ function planSubstitutions(
   attrs: Record<string, string>,
 ): SubstitutionPlan | 'shadow' | 'shorthand' {
   const props = new Set(propNames);
-
-  const boundWithin = new Set<string>();
-  const bindVisit = (n: SgNode): void => {
-    const k = kindOf(n);
-    if (k === 'formal_parameters') {
-      for (const p of n.children()) {
-        const pattern = kindOf(p).endsWith('_parameter') ? p.field('pattern') : p;
-        collectPatternNames(pattern).forEach((x) => boundWithin.add(x));
-      }
-    } else if (k === 'variable_declarator') {
-      collectPatternNames(n.field('name')).forEach((x) => boundWithin.add(x));
-    }
-    n.children().forEach(bindVisit);
-  };
-  bindVisit(body);
+  const boundWithin = collectBoundNames(body);
 
   const edits: TextEdit[] = [];
   const substitutions: Record<string, string> = {};
   let bad: 'shadow' | 'shorthand' | null = null;
-  const refVisit = (n: SgNode): void => {
-    if (bad) return;
-    const k = kindOf(n);
-    if (k === 'shorthand_property_identifier' && props.has(n.text())) {
+
+  forEachReference(body, ({ node, name, shorthand, isTag }) => {
+    if (!props.has(name)) return;
+    // `{ count }` can't be rewritten to an expression without changing the key.
+    if (shorthand) {
       bad = 'shorthand';
-      return;
+      return false;
     }
-    if (k === 'identifier' && props.has(n.text())) {
-      const parent = n.parent();
-      const isTag = parent ? TAG_PARENT_KINDS.has(kindOf(parent)) : false;
-      if (!isTag) {
-        if (boundWithin.has(n.text())) {
-          bad = 'shadow';
-          return;
-        }
-        const name = n.text();
-        const text = attrs[name]!;
-        edits.push({ start: n.range().start.index, end: n.range().end.index, text });
-        substitutions[name] = text;
-      }
+    if (isTag) return;
+    if (boundWithin.has(name)) {
+      bad = 'shadow';
+      return false;
     }
-    n.children().forEach(refVisit);
-  };
-  refVisit(body);
+    const text = attrs[name]!;
+    edits.push({ start: node.range().start.index, end: node.range().end.index, text });
+    substitutions[name] = text;
+  });
+
   if (bad) return bad;
   return { edits, substitutions };
 }
@@ -278,8 +262,15 @@ function trimBackWhitespace(code: string, start: number): number {
   return i;
 }
 
-function verify(
-  before: string,
+/**
+ * Structural invariants the produced output must satisfy: the folded-away target
+ * is gone, declaration and usages both. The type gate runs after this (see
+ * `completeCheckedOp`).
+ *
+ * Exported for this package's own tests — unreachable from a correct planner.
+ * Not re-exported from `index.ts`.
+ */
+export function verifyInlineStructure(
   output: string,
   target: string,
 ): InlineComponentFailure | null {
@@ -290,8 +281,5 @@ function verify(
   if (findUsages(parse(Lang.Tsx, output).root(), target).length > 0) {
     return 'verify-usage-still-present';
   }
-  const delta = checkTypeDelta(before, output);
-  if (delta === 'dirty') return 'type-check-failed';
-  if (delta === 'unknown') return 'type-check-unavailable';
   return null;
 }

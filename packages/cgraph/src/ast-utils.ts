@@ -95,6 +95,77 @@ export function locateComponentFn(root: SgNode, name: string): SgNode | null {
   return null;
 }
 
+/**
+ * Every name bound by a nested scope inside `node` — parameters and variable
+ * declarators at any depth. Both edit ops need this to tell a free reference
+ * from one the subtree binds itself, and both fail closed when a name is both.
+ */
+export function collectBoundNames(node: SgNode): Set<string> {
+  const bound = new Set<string>();
+  const visit = (n: SgNode): void => {
+    const k = kindOf(n);
+    if (k === 'formal_parameters') {
+      for (const p of n.children()) {
+        const pattern = kindOf(p).endsWith('_parameter') ? p.field('pattern') : p;
+        collectPatternNames(pattern).forEach((x) => bound.add(x));
+      }
+    } else if (k === 'variable_declarator') {
+      collectPatternNames(n.field('name')).forEach((x) => bound.add(x));
+    }
+    n.children().forEach(visit);
+  };
+  visit(node);
+  return bound;
+}
+
+export interface Reference {
+  node: SgNode;
+  name: string;
+  /** `{ count }` in an object literal — a reference that is also its own key. */
+  shorthand: boolean;
+  /** A JSX tag name rather than a value reference. */
+  isTag: boolean;
+}
+
+/**
+ * Walk identifier references inside `node` in source order. Return `false` from
+ * `visit` to stop early.
+ *
+ * Tag names are reported with `isTag` set rather than skipped: `extractComponent`
+ * needs them to detect a cyclic `<NewName />` inside the target, while everything
+ * else ignores them. Filtering here would silently drop that check.
+ *
+ * The ops disagree on what a reference *means* — extract turns it into a prop,
+ * inline substitutes the argument text — but agreeing on what counts as one is
+ * what keeps them inverses.
+ */
+export function forEachReference(
+  node: SgNode,
+  visit: (ref: Reference) => boolean | void,
+): void {
+  let stopped = false;
+  const walk = (n: SgNode): void => {
+    if (stopped) return;
+    const k = kindOf(n);
+    if (k === 'identifier' || k === 'shorthand_property_identifier') {
+      const parent = n.parent();
+      if (
+        visit({
+          node: n,
+          name: n.text(),
+          shorthand: k === 'shorthand_property_identifier',
+          isTag: parent ? TAG_PARENT_KINDS.has(kindOf(parent)) : false,
+        }) === false
+      ) {
+        stopped = true;
+        return;
+      }
+    }
+    n.children().forEach(walk);
+  };
+  walk(node);
+}
+
 /** All binding names introduced by a (possibly destructuring) pattern. */
 export function collectPatternNames(pattern: SgNode | null): string[] {
   if (!pattern) return [];

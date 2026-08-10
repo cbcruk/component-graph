@@ -56,5 +56,9 @@
 ## 참고 — 현재 상태 (완료)
 
 - `packages/component-outline` (B): parse-now 추출기 + CLI + 계약 v0.1. 19 tests (class 컴포넌트 + 리네임 re-export 포함).
-- `packages/cgraph` (A): graph lens + projection + 라운드트립 법칙 + `extractComponent` ⇄ `inlineComponent`(byte-exact 역연산 쌍, Tier 1, fail-closed, 정직한 부분집합) + `applyEditsToFile`(atomic 디스크 적용) + `cgraph` CLI(`extract`/`inline`, dry-run/`--write`/`--json`). 공유 AST 유틸(`ast-utils`)·타입 게이트(`type-gate`)로 두 op가 공유. 49 tests.
+- `packages/cgraph` (A): graph lens + projection + 라운드트립 법칙 + `extractComponent` ⇄ `inlineComponent`(byte-exact 역연산 쌍, Tier 1, fail-closed, 정직한 부분집합) + `applyEditsToFile`(atomic 디스크 적용) + `cgraph` CLI(`extract`/`inline`, dry-run/`--write`/`--json`). 84 tests.
+  - 세 op가 공유하는 것: `checked-op`(edits 적용 → 구조 검증 → 타입 게이트 순서 + `CommonFailure`),
+    `ast-utils`(`collectBoundNames`/`forEachReference` — free-var 분석), `skel-utils`(`containsTag`),
+    `compiler-host`(단일 컴파일러 설정), `type-gate`. CLI도 `runEditOp` 하나로 합쳐 op별로는
+    파싱·표시 문자열만 남는다.
 - 원칙: honest-partial · parse-now/no-index · no cross-file · graph는 ephemeral(TSX가 진실) · checked & atomic.

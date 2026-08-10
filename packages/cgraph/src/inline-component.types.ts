@@ -1,4 +1,5 @@
-import type { TextEdit } from './extract-component.types.js';
+import type { TextEdit } from './apply-edits.js';
+import type { CommonFailure } from './checked-op.js';
 
 export interface InlineComponentRequest {
   file: string;
@@ -11,25 +12,24 @@ export interface InlineComponentRequest {
   expectedHash?: string;
 }
 
+/**
+ * Shared reasons come from `CommonFailure`; the rest are the ones only this op
+ * can raise, so the result type stays precise about what it can return.
+ */
 export type InlineComponentFailure =
-  | 'stale-hash'
+  | CommonFailure
   | 'target-not-found'
   | 'unsupported-target-kind'
   | 'unsupported-exported-target'
   | 'target-has-no-jsx'
-  | 'component-not-found'
   | 'not-single-usage'
   | 'usage-not-in-component'
   | 'unsupported-spread'
   | 'unsupported-children'
   | 'unsupported-partial-props'
   | 'unsupported-shorthand-prop'
-  | 'unsupported-shadowing'
   | 'verify-target-still-present'
-  | 'verify-usage-still-present'
-  | 'type-check-failed'
-  /** The type checker could not run — refused rather than assumed clean. */
-  | 'type-check-unavailable';
+  | 'verify-usage-still-present';
 
 export type InlineComponentResult =
   | {

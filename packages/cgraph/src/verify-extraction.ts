@@ -1,5 +1,6 @@
-import { extract, type SkelNode } from 'component-outline';
-import { checkTypeDelta } from './type-gate.js';
+import { extract } from 'component-outline';
+import { typeGateVerdict } from './checked-op.js';
+import { containsTag } from './skel-utils.js';
 import type {
   VerifyExtractionFailure,
   VerifyExtractionRequest,
@@ -77,19 +78,11 @@ export function verifyExtraction(
   // Compile safety last: it catches what structure cannot — undefined types,
   // broken JSX, strict-only errors — but it is both the most expensive check and
   // the least specific, so every structural reason gets to win first.
-  const delta = checkTypeDelta(req.original, req.candidate);
-  if (delta === 'dirty') return fail('introduces-type-errors');
-  if (delta === 'unknown') return fail('type-check-unavailable');
+  const gateFailure = typeGateVerdict(req.original, req.candidate, {
+    dirty: 'introduces-type-errors',
+    unavailable: 'type-check-unavailable',
+  });
+  if (gateFailure) return fail(gateFailure);
 
   return { ok: true, newComponent: newName };
-}
-
-function containsTag(node: SkelNode, tag: string): boolean {
-  if ((node.kind === 'component' || node.kind === 'element') && node.tag === tag) {
-    return true;
-  }
-  if (node.kind === 'element' || node.kind === 'component' || node.kind === 'fragment') {
-    return node.children.some((c) => containsTag(c, tag));
-  }
-  return false;
 }

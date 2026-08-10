@@ -1,3 +1,6 @@
+import type { CommonFailure } from './checked-op.js';
+import type { TextEdit } from './apply-edits.js';
+
 export interface ExtractComponentRequest {
   file: string;
   code: string;
@@ -21,31 +24,25 @@ export interface ExtractedProp {
   origin: PropOrigin;
 }
 
-export interface TextEdit {
-  /** Character offsets into the original source. */
-  start: number;
-  end: number;
-  text: string;
-}
+export type { TextEdit } from './apply-edits.js';
 
+/**
+ * Shared reasons come from `CommonFailure`; the rest are the ones only this op
+ * can raise, so the result type stays precise about what it can return.
+ */
 export type ExtractComponentFailure =
-  | 'stale-hash'
+  | CommonFailure
   | 'invalid-name'
   | 'name-collision'
-  | 'component-not-found'
   | 'component-has-no-jsx'
   | 'target-not-found'
   | 'target-is-root'
   | 'cyclic'
   | 'unsupported-conditional'
-  | 'unsupported-shadowing'
   | 'verify-missing-new-component'
   | 'verify-prop-mismatch'
   | 'verify-missing-original'
-  | 'verify-usage-missing'
-  | 'type-check-failed'
-  /** The type checker could not run — refused rather than assumed clean. */
-  | 'type-check-unavailable';
+  | 'verify-usage-missing';
 
 export type ExtractComponentResult =
   | {
