@@ -56,7 +56,10 @@
 ## 참고 — 현재 상태 (완료)
 
 - `packages/component-outline` (B): parse-now 추출기 + CLI + 계약 v0.1. 19 tests (class 컴포넌트 + 리네임 re-export 포함).
-- `packages/cgraph` (A): graph lens + projection + 라운드트립 법칙 + `extractComponent` ⇄ `inlineComponent`(byte-exact 역연산 쌍, Tier 1, fail-closed, 정직한 부분집합) + `applyEditsToFile`(atomic 디스크 적용) + `cgraph` CLI(`extract`/`inline`, dry-run/`--write`/`--json`). 84 tests.
+- `packages/cgraph` (A): graph lens + projection + 라운드트립 법칙 + `extractComponent` ⇄ `inlineComponent`(byte-exact 역연산 쌍, Tier 1, fail-closed, 정직한 부분집합) + `applyEditsToFile`(atomic 디스크 적용) + `cgraph` CLI(`extract`/`inline`, dry-run/`--write`/`--json`). 96 tests.
+  - graph lens는 **읽기 전용**이며 편집 경로가 아니다. op는 byte-exact `TextEdit`를 위해 char offset이
+    필요한데 outline 계약은 `line`만 준다. 렌즈는 JXON GetPut/PutGet 법칙을 실행 가능하게 만든 자리.
+    `roundtrip`은 `held`/`broken`/`no-jsx` — JSX 없는 컴포넌트는 법칙을 검증한 적이 없으므로 pass가 아니다.
   - 세 op가 공유하는 것: `checked-op`(edits 적용 → 구조 검증 → 타입 게이트 순서 + `CommonFailure`),
     `ast-utils`(`collectBoundNames`/`forEachReference` — free-var 분석), `skel-utils`(`containsTag`),
     `compiler-host`(단일 컴파일러 설정), `type-gate`. CLI도 `runEditOp` 하나로 합쳐 op별로는

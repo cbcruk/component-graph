@@ -22,10 +22,19 @@ describe('roundtrip law', () => {
     it(`${fixture}: project -> re-extract yields an identical graph`, () => {
       for (const component of componentsOf(fixture)) {
         const result = roundtrip(component);
-        expect(result.ok, `${fixture} <${component.name}>`).toBe(true);
+        expect(result.status, `${fixture} <${component.name}>`).not.toBe('broken');
       }
     });
   }
+
+  // Guards the vacuous case: a JSX-less component reports `no-jsx`, which is not
+  // a pass. Without this the suite above could quietly verify nothing at all.
+  it('exercises the law on a meaningful number of components', () => {
+    const held = FIXTURES.flatMap(componentsOf)
+      .map(roundtrip)
+      .filter((r) => r.status === 'held');
+    expect(held.length).toBeGreaterThanOrEqual(5);
+  });
 });
 
 describe('adapter + projection', () => {

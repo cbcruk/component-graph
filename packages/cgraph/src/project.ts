@@ -40,6 +40,24 @@ export function projectGraph(graph: Graph): string {
 
 function projectProp(prop: GProp): string {
   if (prop.name === '{...}') return `{...${prop.value.text}}`;
-  if (prop.value.kind === 'literal') return `${prop.name}="${prop.value.text}"`;
+  if (prop.value.kind === 'literal') return `${prop.name}=${quoteLiteral(prop.value.text)}`;
   return `${prop.name}={${prop.value.text}}`;
+}
+
+/**
+ * A literal as a JSX attribute value. Double quotes normally; single quotes when
+ * the value contains a double quote. JSX accepts either and the B layer unquotes
+ * both, so the round-trip law still holds.
+ *
+ * Honest limit: a value containing *both* quote styles cannot be written as a
+ * quoted attribute at all. It projects to an expression container — valid JSX
+ * carrying the exact value — but the B layer reads that back as an opaque
+ * `expr` rather than a `literal`, so `roundtrip` reports `broken` for it. That
+ * is the correct outcome: emit valid code and let the law surface the
+ * difference, rather than emit `name="he said "hi""` and corrupt the file.
+ */
+function quoteLiteral(text: string): string {
+  if (!text.includes('"')) return `"${text}"`;
+  if (!text.includes("'")) return `'${text}'`;
+  return `{${JSON.stringify(text)}}`;
 }

@@ -4,7 +4,15 @@ import { projectGraph } from './project.js';
 import type { Graph } from './graph.types.js';
 
 export interface RoundtripResult {
-  ok: boolean;
+  /**
+   * `held` — projected and re-extracted to an identical graph.
+   * `broken` — the graphs differ.
+   * `no-jsx` — the component has no JSX, so the law was never exercised.
+   *
+   * There is deliberately no `ok` boolean: `no-jsx` used to report `ok: true`,
+   * which let a component with nothing to check inflate a pass count.
+   */
+  status: 'held' | 'broken' | 'no-jsx';
   /** Graph built from the original component. */
   before: Graph | null;
   /** Graph rebuilt after project -> re-extract. */
@@ -21,15 +29,15 @@ export interface RoundtripResult {
  */
 export function roundtrip(component: Component): RoundtripResult {
   const before = componentToGraph(component);
-  if (!before) return { ok: true, before: null, after: null, jsx: '' };
+  if (!before) return { status: 'no-jsx', before: null, after: null, jsx: '' };
 
   const jsx = projectGraph(before);
   const wrapped = wrapComponent(jsx);
   const reExtracted = extract('__roundtrip__.tsx', wrapped).components[0];
   const after = reExtracted ? componentToGraph(reExtracted) : null;
 
-  const ok = after !== null && JSON.stringify(before) === JSON.stringify(after);
-  return { ok, before, after, jsx };
+  const held = after !== null && JSON.stringify(before) === JSON.stringify(after);
+  return { status: held ? 'held' : 'broken', before, after, jsx };
 }
 
 function wrapComponent(jsx: string): string {

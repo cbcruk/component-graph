@@ -1,9 +1,11 @@
 # cgraph (A layer)
 
-The editing layer of `component-graph`. It takes the **B layer**
-([`component-outline`](../component-outline)) outline, lifts it into an
-**ephemeral graph lens**, and projects that graph back to JSX — verified by a
-round-trip law.
+The editing layer of `component-graph`. Its ops read the **B layer**
+([`component-outline`](../component-outline)) outline and edit TSX through
+checked, fail-closed source-range edits.
+
+Alongside them it carries an **ephemeral graph lens** — outline → `Graph` → JSX,
+verified by a round-trip law.
 
 > Graph is a lens, **TSX stays the source of truth.** No `.graph` file is ever
 > written. The graph is recomputed on demand and thrown away, so parallel git
@@ -15,14 +17,23 @@ GetPut/PutGet law (checked bidirectional editor).
 
 ## What's here
 
-**Foundation (Task 3)** — the ephemeral lens + round-trip law:
+**The graph lens (Task 3)** — a read-only projection plus the law that keeps it
+honest:
 
 - **`componentToGraph(component)`** — outline component → `Graph`. `expr`
   bindings are carried opaquely; nothing is resolved.
 - **`projectGraph(graph)`** — `Graph` → JSX text (canonical formatting).
 - **`roundtrip(component)`** — the law: `graph → project → re-extract → graph'`
-  must be identical. Formatting is normalized away; opaque `expr` nodes (e.g.
-  `{open ? <span>online</span> : null}`) survive verbatim.
+  must be identical. Returns `held` / `broken` / `no-jsx`; a component with no
+  JSX never exercised the law and is not a pass. Formatting is normalized away;
+  opaque `expr` nodes (e.g. `{open ? <span>online</span> : null}`) survive
+  verbatim.
+
+The lens is **not on the edit path**, and cannot be: the ops emit byte-exact
+`TextEdit`s keyed on character offsets, while the outline contract carries
+`line` numbers only. So the ops read the outline and work directly on source
+ranges. The lens is where the JXON lineage is *checked* — it is the GetPut/PutGet
+law made runnable — not a layer edits flow through.
 
 **Marquee op (Task 4)** — `extractComponent`:
 
