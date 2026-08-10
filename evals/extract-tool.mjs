@@ -4,7 +4,7 @@
 //
 // Usage: node evals/extract-tool.mjs <fixture.tsx> '<paramsJSON>' <out.tsx>
 import { readFileSync, writeFileSync } from 'node:fs';
-import { extractComponent } from '../packages/cgraph/dist/extract-component.js';
+import { extractComponent } from 'cgraph';
 
 const [, , fixturePath, paramsJson, outPath] = process.argv;
 const { component, line, name } = JSON.parse(paramsJson);

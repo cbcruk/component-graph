@@ -22,7 +22,10 @@ graph, applies checked semantic patches, and reprojects to JSX.
   text, never followed.
 - **declarative catalog.** What counts as a component lives in
   [`src/catalog.ts`](./src/catalog.ts) as data. Widening coverage (e.g.
-  `React.memo` / `forwardRef`) means adding a reader, not branching the walker.
+  `React.memo` / `forwardRef`) means supplying a reader, not branching the
+  walker — and `extract` takes the reader set as an argument, so widening it
+  does not mean editing the registry in place. See
+  [Widening coverage](#widening-coverage).
 
 ## Install / build
 
@@ -57,6 +60,24 @@ import { extract, printOutline } from 'component-outline';
 const outline = extract('Profile.tsx', sourceCode); // pure: (file, code) => Outline
 console.log(printOutline(outline));
 ```
+
+### `component-outline/ast` — shared machinery
+
+A second entry point carrying the ast-grep walkers this package owns:
+
+```ts
+import { findRootJsx, calleeName, kindOf, isJsxNode } from 'component-outline/ast';
+```
+
+It is deliberately separate from the main entry point. The **JSON contract is
+what this package promises**; `/ast` is machinery shared with the A layer
+([`cgraph`](../cgraph)), which edits TSX and so needs `SgNode`s to compute
+source ranges — something the contract does not carry.
+
+`findRootJsx` is the reason it exists. It *defines* what counts as a component's
+JSX, and both layers ask that question: this package to decide whether to
+catalogue a component at all, `cgraph` to decide what it may edit. Two copies
+meant widening one silently left the other behind.
 
 ## JSON contract (v0.1)
 
@@ -131,9 +152,35 @@ component / fragment / text / expr nodes, source ranges, and the import/export
 surface. Renamed re-exports (`export { Foo as Bar }`) surface the public alias in
 `exportsSurface` while still marking the local `Foo` component `exported`.
 
-Recognized HOCs live in a `HOC_NAMES` set in [`src/catalog.ts`](./src/catalog.ts);
-an unknown wrapper (e.g. `styled(Foo)`) is deliberately *not* treated as a
-component — honest-partial over guessing.
+Recognized HOCs default to `DEFAULT_HOC_NAMES` (`memo`, `forwardRef`); an
+unknown wrapper is deliberately *not* treated as a component — honest-partial
+over guessing.
+
+### Widening coverage
+
+`extract` accepts the reader set, so opting in never means editing the catalog:
+
+```ts
+import { extract, createComponentReaders, DEFAULT_HOC_NAMES } from 'component-outline';
+
+// Recognise `observer(...)`-wrapped components alongside the built-ins.
+const readers = createComponentReaders(new Set([...DEFAULT_HOC_NAMES, 'observer']));
+const outline = extract('Panel.tsx', code, { readers });
+```
+
+A reader declares the syntactic **position** it applies to — `declaration`
+(`function F() {}`, `const F = …`, `class F …`) or `expression` (the
+`export default <expr>` form). Position, not node kind, is what keeps two
+readers off the same node: `export default function foo() {}` is a
+`function_declaration` that both a declaration reader and an expression reader
+would otherwise claim.
+
+```ts
+const onlyFoo: ComponentReader = {
+  position: 'declaration',
+  read: (node) => (/* … */ []),
+};
+```
 
 Out of scope (deferred to Tier 1 / the A layer): type resolution, following
 imports, data-flow edges, dependency-array semantics, nested component

@@ -1,10 +1,37 @@
-import { extract, type SkelNode } from 'component-outline';
-import { introducesTypeErrors } from './type-gate.js';
-import type {
-  VerifyExtractionFailure,
-  VerifyExtractionRequest,
-  VerifyExtractionResult,
-} from './verify-extraction.types.js';
+import { containsTag, extract } from 'component-outline';
+import { typeGateVerdict } from './checked-op.js';
+
+export interface VerifyExtractionRequest {
+  /** Path (for diagnostics / jsx inference). */
+  file: string;
+  /** The file before the agent's freehand edit. */
+  original: string;
+  /** The candidate file the agent produced. */
+  candidate: string;
+}
+
+/**
+ * Every reason below is produced by exactly one guard in this file, and is kept
+ * beside them for that reason. This op shares no `CommonFailure` reasons with
+ * the edit ops — it neither takes a stale-hash guard nor locates a component by
+ * name — so its union stands alone.
+ */
+export type VerifyExtractionFailure =
+  | 'parse-failed'
+  /** A component name is declared more than once in the candidate. */
+  | 'duplicate-declaration'
+  | 'introduces-type-errors'
+  | 'no-new-component'
+  | 'multiple-new-components'
+  | 'lost-original-component'
+  | 'new-component-empty'
+  | 'new-component-unused'
+  /** The type checker could not run — refused rather than assumed clean. */
+  | 'type-check-unavailable';
+
+export type VerifyExtractionResult =
+  | { ok: true; newComponent: string }
+  | { ok: false; reason: VerifyExtractionFailure };
 
 const fail = (reason: VerifyExtractionFailure): VerifyExtractionResult => ({
   ok: false,
@@ -20,8 +47,10 @@ const fail = (reason: VerifyExtractionFailure): VerifyExtractionResult => ({
  * lost). This keeps a strong model's coverage while recovering the safety
  * guarantee the model alone doesn't have.
  *
+ * Checks run structure-first, type gate last, so the most specific reason wins.
+ *
  * The eval shows why: on a name collision, freehand silently emits a duplicate
- * declaration — the `introduces-type-errors` check rejects it. On shadowing,
+ * declaration — the `duplicate-declaration` check rejects it. On shadowing,
  * freehand extracts correctly and the checks pass — so this accepts what the
  * `extractComponent` op conservatively refuses.
  *
@@ -40,14 +69,17 @@ export function verifyExtraction(
     return fail('parse-failed');
   }
 
-  // Compile safety: catches duplicate identifiers, undefined types, broken JSX —
-  // the failure mode freehand editing hits on adversarial inputs.
-  if (introducesTypeErrors(req.original, req.candidate)) {
-    return fail('introduces-type-errors');
-  }
-
+  const candidateComps = candidate.components.map((c) => c.name);
   const originalNames = new Set(originalComps);
-  const candidateNames = new Set(candidate.components.map((c) => c.name));
+  const candidateNames = new Set(candidateComps);
+
+  // A redeclared name is the freehand collision failure. Caught structurally so
+  // it reports as itself: the type gate would also catch it, but only as a
+  // generic `introduces-type-errors`, and the net-new check below would call it
+  // `no-new-component` — true (the Set collapses the duplicate) yet misleading,
+  // since the edit did create a component. Non-component redeclarations stay
+  // the type gate's job.
+  if (candidateComps.length !== candidateNames.size) return fail('duplicate-declaration');
 
   // Nothing that existed may have vanished.
   for (const name of originalNames) {
@@ -69,15 +101,14 @@ export function verifyExtraction(
   );
   if (!used) return fail('new-component-unused');
 
-  return { ok: true, newComponent: newName };
-}
+  // Compile safety last: it catches what structure cannot — undefined types,
+  // broken JSX, strict-only errors — but it is both the most expensive check and
+  // the least specific, so every structural reason gets to win first.
+  const gateFailure = typeGateVerdict(req.original, req.candidate, {
+    dirty: 'introduces-type-errors',
+    unavailable: 'type-check-unavailable',
+  });
+  if (gateFailure) return fail(gateFailure);
 
-function containsTag(node: SkelNode, tag: string): boolean {
-  if ((node.kind === 'component' || node.kind === 'element') && node.tag === tag) {
-    return true;
-  }
-  if (node.kind === 'element' || node.kind === 'component' || node.kind === 'fragment') {
-    return node.children.some((c) => containsTag(c, tag));
-  }
-  return false;
+  return { ok: true, newComponent: newName };
 }

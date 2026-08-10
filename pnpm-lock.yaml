@@ -10,6 +10,12 @@ importers:
 
   evals:
     dependencies:
+      cgraph:
+        specifier: workspace:*
+        version: link:../packages/cgraph
+      component-outline:
+        specifier: workspace:*
+        version: link:../packages/component-outline
       react:
         specifier: ^18.3.1
         version: 18.3.1

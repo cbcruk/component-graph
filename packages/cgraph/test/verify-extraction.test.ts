@@ -81,6 +81,41 @@ describe('verifyExtraction — rejects unsafe edits (fail-closed)', () => {
     ].join('\n');
     const result = v(original, candidate);
     expect(result.ok).toBe(false);
+    // Structural reason wins: the type gate would also reject this, but only as
+    // a generic `introduces-type-errors`.
+    if (!result.ok) expect(result.reason).toBe('duplicate-declaration');
+  });
+
+  it('prefers a structural reason over the type gate when an edit fails both', () => {
+    // Deletes Card (structurally lost) *and* references an undefined type.
+    const candidate = [
+      'function CountBadge({ count }: { count: Missing }) { return <span>{count}</span>; }',
+      '',
+    ].join('\n');
+    const result = v(card, candidate);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe('lost-original-component');
+  });
+
+  it('still falls through to the type gate when structure is sound', () => {
+    // A well-formed extraction whose new component annotates an undefined type.
+    const candidate = [
+      'interface CardProps { title: string; count: number }',
+      'export function Card({ title, count }: CardProps) {',
+      '  return (',
+      '    <section className="card">',
+      '      <CountBadge count={count} />',
+      '    </section>',
+      '  );',
+      '}',
+      '',
+      'function CountBadge({ count }: { count: Missing }) {',
+      '  return <span className="count">{count}</span>;',
+      '}',
+      '',
+    ].join('\n');
+    const result = v(card, candidate);
+    expect(result.ok).toBe(false);
     if (!result.ok) expect(result.reason).toBe('introduces-type-errors');
   });
 

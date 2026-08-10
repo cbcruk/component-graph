@@ -1,22 +1,26 @@
 import { parse, Lang, type SgNode } from '@ast-grep/napi';
 import {
-  readExpressionComponent,
+  CATALOG,
   runCatalog,
+  type ComponentReader,
   type ShapeReading,
 } from './catalog.js';
+import {
+  FUNCTION_BOUNDARY,
+  calleeName,
+  findRootJsx,
+  isHookIdentifier,
+  kindOf,
+  namedChild,
+} from './ast.js';
 import {
   classifyTag,
   collapseWhitespace,
   contentChildren,
   endLine,
-  isHookIdentifier,
-  isJsxNode,
-  kindOf,
-  namedChild,
   startLine,
   stripTypeAnnotation,
   unquote,
-  unwrapParen,
 } from './extract.utils.js';
 import {
   OUTLINE_VERSION,
@@ -30,18 +34,28 @@ import {
   type SkelNode,
 } from './outline.types.js';
 
-const FUNCTION_BOUNDARY = new Set([
-  'arrow_function',
-  'function_declaration',
-  'function_expression',
-  'method_definition',
-]);
+export interface ExtractOptions {
+  /**
+   * Component readers to recognise declarations with. Defaults to `CATALOG`.
+   *
+   * This is the seam the catalog is built around: widening coverage means
+   * supplying readers, not editing the registry in place. Use
+   * `createComponentReaders(hocNames)` to keep the standard set and only widen
+   * the recognised higher-order components.
+   */
+  readers?: readonly ComponentReader[];
+}
 
 /**
  * Pure parse-now extractor: TSX source -> stable outline contract (v0.1).
  * Single file only; honest-partial; no cross-file resolution.
  */
-export function extract(file: string, code: string): Outline {
+export function extract(
+  file: string,
+  code: string,
+  options: ExtractOptions = {},
+): Outline {
+  const readers = options.readers ?? CATALOG;
   const root = parse(Lang.Tsx, code).root();
   const imports: ImportRef[] = [];
   const components: Component[] = [];
@@ -63,11 +77,9 @@ export function extract(file: string, code: string): Outline {
         exportedLocals.add(spec.local);
       }
       const readings = inner
-        ? runCatalog(inner)
+        ? runCatalog(inner, 'declaration', readers)
         : defaultExpr
-          ? [readExpressionComponent(defaultExpr)].filter(
-              (r): r is ShapeReading => r !== null,
-            )
+          ? runCatalog(defaultExpr, 'expression', readers)
           : [];
       for (const reading of readings) {
         const component = buildComponent(reading, node, true, isDefault);
@@ -79,7 +91,7 @@ export function extract(file: string, code: string): Outline {
       continue;
     }
 
-    for (const reading of runCatalog(node)) {
+    for (const reading of runCatalog(node, 'declaration', readers)) {
       const component = buildComponent(reading, node, false, false);
       if (component) components.push(component);
     }
@@ -322,15 +334,8 @@ function readHooks(fnNode: SgNode): HookCall[] {
 }
 
 function hookName(callee: SgNode | null): string | null {
-  if (!callee) return null;
-  if (callee.kind() === 'identifier') {
-    return isHookIdentifier(callee.text()) ? callee.text() : null;
-  }
-  if (callee.kind() === 'member_expression') {
-    const prop = callee.field('property');
-    if (prop && isHookIdentifier(prop.text())) return prop.text();
-  }
-  return null;
+  const name = calleeName(callee);
+  return name && isHookIdentifier(name) ? name : null;
 }
 
 function bindsForCall(call: SgNode): string[] {
@@ -354,40 +359,6 @@ function bindsForCall(call: SgNode): string[] {
   return [];
 }
 
-function findRootJsx(fnNode: SgNode): SgNode | null {
-  const body = fnNode.field('body');
-  if (!body) return null;
-
-  if (body.kind() !== 'statement_block') {
-    const jsx = unwrapParen(body);
-    return isJsxNode(jsx) ? jsx : null;
-  }
-
-  let found: SgNode | null = null;
-  const visit = (node: SgNode): void => {
-    if (found) return;
-    if (node.kind() === 'return_statement') {
-      const arg = node.children().find((c) => c.isNamed());
-      if (arg) {
-        const jsx = unwrapParen(arg);
-        if (isJsxNode(jsx)) found = jsx;
-      }
-      return;
-    }
-    for (const child of node.children()) {
-      if (found) return;
-      if (FUNCTION_BOUNDARY.has(kindOf(child))) continue;
-      visit(child);
-    }
-  };
-
-  for (const child of body.children()) {
-    if (found) break;
-    if (FUNCTION_BOUNDARY.has(kindOf(child))) continue;
-    visit(child);
-  }
-  return found;
-}
 
 function buildSkel(node: SgNode): SkelNode | null {
   const kind = node.kind();

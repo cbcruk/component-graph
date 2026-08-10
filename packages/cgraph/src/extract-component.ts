@@ -1,27 +1,84 @@
 import { parse, Lang, type SgNode } from '@ast-grep/napi';
-import { Project, ts } from 'ts-morph';
-import { extract, type SkelNode } from 'component-outline';
-import { applyTextEdits, hashSource } from './apply-edits.js';
+import { ts } from 'ts-morph';
+import { containsTag, extract } from 'component-outline';
+import { hashSource, type TextEdit } from './apply-edits.js';
 import {
-  FUNCTION_BOUNDARY,
-  TAG_PARENT_KINDS,
-  TARGET_KINDS,
-  collectPatternNames,
+  JSX_NODE_KINDS,
+  calleeName,
   findRootJsx,
-  isJsxContainer,
+  isHookIdentifier,
   kindOf,
+} from 'component-outline/ast';
+import {
+  collectBoundNames,
+  collectPatternNames,
+  forEachReference,
   locateComponentFn,
-  unwrapParen,
 } from './ast-utils.js';
-import { introducesTypeErrors } from './type-gate.js';
-import type {
-  ExtractComponentFailure,
-  ExtractComponentRequest,
-  ExtractComponentResult,
-  ExtractedProp,
-  PropOrigin,
-  TextEdit,
-} from './extract-component.types.js';
+import { completeCheckedOp, type CommonFailure } from './checked-op.js';
+import { createCheckFile } from './compiler-host.js';
+
+export interface ExtractComponentRequest {
+  file: string;
+  code: string;
+  /** Name of the enclosing component whose JSX contains the target. */
+  component: string;
+  /** 1-based line where the JSX subtree to extract begins. */
+  targetLine: number;
+  /** PascalCase name for the new component. */
+  newName: string;
+  /** Optional stale-hash guard: reject if it does not match the input hash. */
+  expectedHash?: string;
+}
+
+/** Data-flow origin of a prop, resolved locally (Tier 1). */
+export type PropOrigin = 'param' | 'hook' | 'local';
+
+export interface ExtractedProp {
+  name: string;
+  /** Resolved type text (ts-morph), or "unknown" when it can't be resolved. */
+  typeText: string;
+  origin: PropOrigin;
+}
+
+/**
+ * Shared reasons come from `CommonFailure`; the rest are the ones only this op
+ * can raise, so the result type stays precise about what it can return.
+ *
+ * Every entry below is produced by exactly one guard in this file. Kept beside
+ * them deliberately: as a separate types module the union was a transcript of
+ * this file's control flow stored somewhere else, so adding a guard meant
+ * editing two files in lockstep.
+ */
+export type ExtractComponentFailure =
+  | CommonFailure
+  | 'invalid-name'
+  | 'name-collision'
+  | 'component-has-no-jsx'
+  | 'target-not-found'
+  | 'target-is-root'
+  | 'cyclic'
+  | 'unsupported-conditional'
+  | 'verify-missing-new-component'
+  | 'verify-prop-mismatch'
+  | 'verify-missing-original'
+  | 'verify-usage-missing';
+
+export type ExtractComponentResult =
+  | {
+      ok: true;
+      /** Full edited source. */
+      output: string;
+      /** The generated new component source. */
+      newComponent: string;
+      /** The replacement usage placed where the target was. */
+      usage: string;
+      props: ExtractedProp[];
+      edits: TextEdit[];
+      /** Content hash of `output`, for chaining atomic edits. */
+      hash: string;
+    }
+  | { ok: false; reason: ExtractComponentFailure };
 
 const fail = (reason: ExtractComponentFailure): ExtractComponentResult => ({
   ok: false,
@@ -77,19 +134,23 @@ export function extractComponent(
     // makes `inline` a byte-exact inverse — the extract/inline round-trip law.
     { start: insertAt, end: insertAt, text: `\n\n${newComponent}` },
   ];
-  const output = applyTextEdits(req.code, edits);
 
-  const verdict = verify(req.code, output, req.component, req.newName, props);
-  if (verdict) return fail(verdict);
+  const outcome = completeCheckedOp(
+    req.code,
+    edits,
+    (output) => verifyExtractStructure(output, req.component, req.newName, props),
+    { dirty: 'type-check-failed', unavailable: 'type-check-unavailable' },
+  );
+  if (!outcome.ok) return fail(outcome.reason);
 
   return {
     ok: true,
-    output,
+    output: outcome.output,
     newComponent,
     usage,
     props,
     edits,
-    hash: hashSource(output),
+    hash: outcome.hash,
   };
 }
 
@@ -151,7 +212,7 @@ function findTargetJsx(rootJsx: SgNode, line: number): SgNode | null {
   let found: SgNode | null = null;
   const visit = (n: SgNode): void => {
     if (found) return;
-    if (TARGET_KINDS.has(kindOf(n)) && n.range().start.line + 1 === line) {
+    if (JSX_NODE_KINDS.has(kindOf(n)) && n.range().start.line + 1 === line) {
       found = n;
       return;
     }
@@ -198,13 +259,8 @@ function collectLocalScope(fnNode: SgNode): Map<string, PropOrigin> {
 
 function isHookCall(value: SgNode | null): boolean {
   if (!value || kindOf(value) !== 'call_expression') return false;
-  const callee = value.field('function');
-  if (!callee) return false;
-  const name =
-    kindOf(callee) === 'member_expression'
-      ? callee.field('property')?.text()
-      : callee.text();
-  return name ? /^use([A-Z].*)?$/.test(name) : false;
+  const name = calleeName(value.field('function'));
+  return name !== null && isHookIdentifier(name);
 }
 
 interface FreeVarAnalysis {
@@ -220,44 +276,25 @@ function analyzeFreeVars(
   localScope: Map<string, PropOrigin>,
   newName: string,
 ): FreeVarAnalysis {
-  const boundWithin = new Set<string>();
-  const bindVisit = (n: SgNode): void => {
-    const k = kindOf(n);
-    if (k === 'formal_parameters') {
-      for (const p of n.children()) {
-        const pattern = kindOf(p).endsWith('_parameter') ? p.field('pattern') : p;
-        collectPatternNames(pattern).forEach((x) => boundWithin.add(x));
-      }
-    } else if (k === 'variable_declarator') {
-      collectPatternNames(n.field('name')).forEach((x) => boundWithin.add(x));
-    }
-    n.children().forEach(bindVisit);
-  };
-  bindVisit(target);
+  const boundWithin = collectBoundNames(target);
 
   const props: string[] = [];
   const seen = new Set<string>();
   let referencesNewName = false;
   let shadowConflict = false;
-  const refVisit = (n: SgNode): void => {
-    const k = kindOf(n);
-    if (k === 'identifier' || k === 'shorthand_property_identifier') {
-      const parent = n.parent();
-      const isTag = parent ? TAG_PARENT_KINDS.has(kindOf(parent)) : false;
-      const name = n.text();
-      if (name === newName) referencesNewName = true;
-      if (!isTag && localScope.has(name)) {
-        if (boundWithin.has(name)) {
-          shadowConflict = true;
-        } else if (!seen.has(name)) {
-          seen.add(name);
-          props.push(name);
-        }
-      }
+
+  forEachReference(target, ({ name, isTag }) => {
+    // Deliberately before the tag check: a `<NewName />` inside the target is
+    // the cyclic case, and it only ever appears in tag position.
+    if (name === newName) referencesNewName = true;
+    if (isTag || !localScope.has(name)) return;
+    if (boundWithin.has(name)) {
+      shadowConflict = true;
+    } else if (!seen.has(name)) {
+      seen.add(name);
+      props.push(name);
     }
-    n.children().forEach(refVisit);
-  };
-  refVisit(target);
+  });
 
   return { props, referencesNewName, shadowConflict };
 }
@@ -285,17 +322,8 @@ function resolveTypesWithTsMorph(
   req: ExtractComponentRequest,
   propNames: string[],
 ): Map<string, string> {
-  const project = new Project({
-    useInMemoryFileSystem: true,
-    compilerOptions: {
-      jsx: ts.JsxEmit.Preserve,
-      strict: true,
-      noEmit: true,
-      skipLibCheck: true,
-    },
-  });
   const file = req.file.endsWith('.tsx') ? req.file : 'in.tsx';
-  const sf = project.createSourceFile(file, req.code);
+  const sf = createCheckFile(file, req.code);
   const wanted = new Set(propNames);
   const out = new Map<string, string>();
 
@@ -346,8 +374,16 @@ function buildNewComponent(
   );
 }
 
-function verify(
-  before: string,
+/**
+ * Structural invariants the produced output must satisfy: the new component
+ * exists, binds every inferred prop, and is wired into the still-present
+ * original. The type gate runs after this (see `completeCheckedOp`).
+ *
+ * Exported for this package's own tests — these reasons are unreachable from a
+ * correct planner, so the only way to cover them is to call this directly with
+ * output a wrong planner would have produced. Not re-exported from `index.ts`.
+ */
+export function verifyExtractStructure(
   output: string,
   componentName: string,
   newName: string,
@@ -366,19 +402,8 @@ function verify(
 
   const enclosing = outline.components.find((c) => c.name === componentName);
   if (!enclosing || !enclosing.root) return 'verify-missing-original';
-  if (!containsComponentTag(enclosing.root, newName)) return 'verify-usage-missing';
+  if (!containsTag(enclosing.root, newName)) return 'verify-usage-missing';
 
-  if (introducesTypeErrors(before, output)) return 'type-check-failed';
   return null;
-}
-
-function containsComponentTag(node: SkelNode, tag: string): boolean {
-  if ((node.kind === 'component' || node.kind === 'element') && node.tag === tag) {
-    return true;
-  }
-  if (node.kind === 'element' || node.kind === 'component' || node.kind === 'fragment') {
-    return node.children.some((c) => containsComponentTag(c, tag));
-  }
-  return false;
 }
 

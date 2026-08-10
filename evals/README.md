@@ -15,12 +15,14 @@ errors), the tool's structural **verify** gate, and the **round-trip law**. So
 ## Shape
 
 ```
-tasks/*.json      task = { fixture, instruction, target } with an objective target
+tasks/*.json      task = { id, fixture, instruction, target, render?, adversarial? }
 fixtures/*.tsx    the input files
-score.mjs         deterministic scorer → { pass, failureMode, checks }
+task.mjs          tasks/*.json schema; resolves `fixture` to a path once
+record.mjs        results.jsonl schema: one shape, one outcome vocabulary
+score.mjs         deterministic scorer → one record
 extract-tool.mjs  arm-B executor: runs the cgraph op from agent-chosen params
 candidates/       each agent's produced file (git-ignored working area)
-results.jsonl     append-only log: { ts, task, arm, trial, model, result }
+results.jsonl     append-only log of records (schema 1)
 ```
 
 **Arms** (what the agent is given for the same task):
@@ -33,25 +35,49 @@ results.jsonl     append-only log: { ts, task, arm, trial, model, result }
 ## Run
 
 Build first (`pnpm build`), then spawn agents (via the session's Agent tool),
-write each output to `candidates/`, and score:
+and write each output to `candidates/`. Then:
 
 ```sh
-node evals/score.mjs candidates/x.tsx fixtures/card.tsx '<targetJSON>'
-node evals/extract-tool.mjs fixtures/card.tsx '{"component":"Card","line":12,"name":"CountBadge"}' out.tsx
+node evals/score.mjs evals/candidates/x.tsx \
+  --task-file evals/tasks/extract-count-badge.json \
+  --arm A-freehand --trial 1 --model claude-opus-4-8 \
+  >> evals/results.jsonl
+
+node evals/extract-tool.mjs evals/fixtures/card.tsx \
+  '{"component":"Card","line":12,"name":"CountBadge"}' evals/candidates/out.tsx
+
+node evals/gate.mjs evals/tasks/extract-collision.json evals/candidates/x.tsx \
+  >> evals/results.jsonl
+```
+
+The task file supplies the id, the target and the original source, and each
+producer emits a complete record — neither the target nor the log envelope is
+assembled by hand. `fixture` is stored relative to `evals/` and resolved once in
+[`task.mjs`](./task.mjs), so these work from any directory.
+
+Validate the tasks and the log at any time:
+
+```sh
+pnpm --filter evals check
 ```
 
 ## Findings
 
-Opus 4.8. Outcome = `pass` (correct + compiles) · `broken:*` (produced code
-that doesn't compile / is structurally wrong) · `safe-refusal` (tool declined,
-no broken code emitted).
+Opus 4.8. One outcome vocabulary across every arm (see [`record.mjs`](./record.mjs)):
+`pass` (correct + compiles) · `fail:<check>` (emitted an edit that is wrong;
+`<check>` is the first failing check) · `refused:<reason>` (a tool or gate
+declined — no broken code emitted).
+
+Whether a refusal was *safe* (it blocked a broken edit) or *false* (it blocked
+a valid one) is a judgement about the task, not a fact about the run, so it is
+derived in the analysis below rather than baked into the log.
 
 | task | A — freehand | B — tool |
 |---|---|---|
 | `extract-count-badge` (trivial) | pass 3/3 | pass 3/3 |
 | `extract-row-opaque` (free vars buried in `{show && items.length}`) | pass 3/3 | pass 3/3 |
-| `extract-collision` (`Count` already exists top-level) | **broken:type 6/6** | **safe-refusal 2/2** |
-| `extract-shadow` (outer `x` prop vs inner `(x) =>` param) | **pass 6/6** | **false-refusal 2/2** |
+| `extract-collision` (`Count` already exists top-level) | **fail:noNewTypeErrors 6/6** | **refused 2/2** (safe) |
+| `extract-shadow` (outer `x` prop vs inner `(x) =>` param) | **pass 6/6** | **refused 2/2** (false) |
 
 ### What the data says
 
@@ -97,7 +123,7 @@ freehand outputs:
 | shadowing | pass | refuse | **pass** (accepted the valid edit) |
 
 **Arm C strictly dominates.** It never ships broken code — the collision edit
-that arm A silently emitted is rejected as `introduces-type-errors` — *and* it
+that arm A silently emitted is rejected as `refused:duplicate-declaration` — *and* it
 keeps the coverage arm B loses, accepting the valid shadowing extraction the
 `extractComponent` op conservatively refuses. Model coverage + tool guarantee,
 with neither's downside.
@@ -138,9 +164,9 @@ two failure modes caught:
 
 | candidate | stage that fires | outcome |
 |---|---|---|
-| `CountBadge` / `Row` / `Wrap` (valid) | — | **accept** |
-| collision (duplicate decl) | static (v1) | reject: `introduces-type-errors` |
-| `count + 1` (typechecks, wrong output) | render (v2) | reject: `behavior-changed` |
+| `CountBadge` / `Row` / `Wrap` (valid) | — | **pass** |
+| collision (duplicate decl) | static (v1) | `refused:duplicate-declaration` |
+| `count + 1` (typechecks, wrong output) | render (v2) | `refused:behavior-changed` |
 
 So arm C rejects **both** the edit that doesn't compile *and* the edit that
 compiles but renders the wrong thing — while accepting every valid extraction,

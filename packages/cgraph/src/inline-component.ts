@@ -1,21 +1,62 @@
 import { parse, Lang, type SgNode } from '@ast-grep/napi';
 import { extract } from 'component-outline';
-import { applyTextEdits, hashSource } from './apply-edits.js';
+import { applyTextEdits, hashSource, type TextEdit } from './apply-edits.js';
+import { JSX_NODE_KINDS, findRootJsx, kindOf } from 'component-outline/ast';
 import {
-  TAG_PARENT_KINDS,
-  TARGET_KINDS,
+  collectBoundNames,
   collectPatternNames,
-  findRootJsx,
-  kindOf,
+  forEachReference,
   locateComponentFn,
 } from './ast-utils.js';
-import { introducesTypeErrors } from './type-gate.js';
-import type { TextEdit } from './extract-component.types.js';
-import type {
-  InlineComponentFailure,
-  InlineComponentRequest,
-  InlineComponentResult,
-} from './inline-component.types.js';
+import { completeCheckedOp, type CommonFailure } from './checked-op.js';
+
+export interface InlineComponentRequest {
+  file: string;
+  code: string;
+  /** The enclosing component that contains the single usage to inline into. */
+  component: string;
+  /** The top-level component to inline and remove. */
+  target: string;
+  /** Optional stale-hash guard: reject if it does not match the input hash. */
+  expectedHash?: string;
+}
+
+/**
+ * Shared reasons come from `CommonFailure`; the rest are the ones only this op
+ * can raise, so the result type stays precise about what it can return.
+ *
+ * Every entry below is produced by exactly one guard in this file, and is kept
+ * beside them for that reason.
+ */
+export type InlineComponentFailure =
+  | CommonFailure
+  | 'target-not-found'
+  | 'unsupported-target-kind'
+  | 'unsupported-exported-target'
+  | 'target-has-no-jsx'
+  | 'not-single-usage'
+  | 'usage-not-in-component'
+  | 'unsupported-spread'
+  | 'unsupported-children'
+  | 'unsupported-partial-props'
+  | 'unsupported-shorthand-prop'
+  | 'verify-target-still-present'
+  | 'verify-usage-still-present';
+
+export type InlineComponentResult =
+  | {
+      ok: true;
+      /** Full edited source. */
+      output: string;
+      /** The inlined JSX that replaced the usage (props substituted). */
+      inlined: string;
+      /** Prop name → the argument expression it was substituted with. */
+      substitutions: Record<string, string>;
+      edits: TextEdit[];
+      /** Content hash of `output`, for chaining atomic edits. */
+      hash: string;
+    }
+  | { ok: false; reason: InlineComponentFailure };
 
 const fail = (reason: InlineComponentFailure): InlineComponentResult => ({
   ok: false,
@@ -81,18 +122,22 @@ export function inlineComponent(
     { start: usageStart, end: usageEnd, text: inlined },
     { start: delStart, end: delEnd, text: '' },
   ];
-  const output = applyTextEdits(req.code, edits);
 
-  const verdict = verify(req.code, output, req.target);
-  if (verdict) return fail(verdict);
+  const outcome = completeCheckedOp(
+    req.code,
+    edits,
+    (output) => verifyInlineStructure(output, req.target),
+    { dirty: 'type-check-failed', unavailable: 'type-check-unavailable' },
+  );
+  if (!outcome.ok) return fail(outcome.reason);
 
   return {
     ok: true,
-    output,
+    output: outcome.output,
     inlined,
     substitutions: sub.substitutions,
     edits,
-    hash: hashSource(output),
+    hash: outcome.hash,
   };
 }
 
@@ -131,7 +176,7 @@ function tagName(node: SgNode): string | null {
 function findUsages(root: SgNode, name: string): SgNode[] {
   const out: SgNode[] = [];
   const visit = (n: SgNode): void => {
-    if (TARGET_KINDS.has(kindOf(n)) && tagName(n) === name) out.push(n);
+    if (JSX_NODE_KINDS.has(kindOf(n)) && tagName(n) === name) out.push(n);
     for (const c of n.children()) visit(c);
   };
   visit(root);
@@ -212,49 +257,29 @@ function planSubstitutions(
   attrs: Record<string, string>,
 ): SubstitutionPlan | 'shadow' | 'shorthand' {
   const props = new Set(propNames);
-
-  const boundWithin = new Set<string>();
-  const bindVisit = (n: SgNode): void => {
-    const k = kindOf(n);
-    if (k === 'formal_parameters') {
-      for (const p of n.children()) {
-        const pattern = kindOf(p).endsWith('_parameter') ? p.field('pattern') : p;
-        collectPatternNames(pattern).forEach((x) => boundWithin.add(x));
-      }
-    } else if (k === 'variable_declarator') {
-      collectPatternNames(n.field('name')).forEach((x) => boundWithin.add(x));
-    }
-    n.children().forEach(bindVisit);
-  };
-  bindVisit(body);
+  const boundWithin = collectBoundNames(body);
 
   const edits: TextEdit[] = [];
   const substitutions: Record<string, string> = {};
   let bad: 'shadow' | 'shorthand' | null = null;
-  const refVisit = (n: SgNode): void => {
-    if (bad) return;
-    const k = kindOf(n);
-    if (k === 'shorthand_property_identifier' && props.has(n.text())) {
+
+  forEachReference(body, ({ node, name, shorthand, isTag }) => {
+    if (!props.has(name)) return;
+    // `{ count }` can't be rewritten to an expression without changing the key.
+    if (shorthand) {
       bad = 'shorthand';
-      return;
+      return false;
     }
-    if (k === 'identifier' && props.has(n.text())) {
-      const parent = n.parent();
-      const isTag = parent ? TAG_PARENT_KINDS.has(kindOf(parent)) : false;
-      if (!isTag) {
-        if (boundWithin.has(n.text())) {
-          bad = 'shadow';
-          return;
-        }
-        const name = n.text();
-        const text = attrs[name]!;
-        edits.push({ start: n.range().start.index, end: n.range().end.index, text });
-        substitutions[name] = text;
-      }
+    if (isTag) return;
+    if (boundWithin.has(name)) {
+      bad = 'shadow';
+      return false;
     }
-    n.children().forEach(refVisit);
-  };
-  refVisit(body);
+    const text = attrs[name]!;
+    edits.push({ start: node.range().start.index, end: node.range().end.index, text });
+    substitutions[name] = text;
+  });
+
   if (bad) return bad;
   return { edits, substitutions };
 }
@@ -278,8 +303,15 @@ function trimBackWhitespace(code: string, start: number): number {
   return i;
 }
 
-function verify(
-  before: string,
+/**
+ * Structural invariants the produced output must satisfy: the folded-away target
+ * is gone, declaration and usages both. The type gate runs after this (see
+ * `completeCheckedOp`).
+ *
+ * Exported for this package's own tests — unreachable from a correct planner.
+ * Not re-exported from `index.ts`.
+ */
+export function verifyInlineStructure(
   output: string,
   target: string,
 ): InlineComponentFailure | null {
@@ -290,6 +322,5 @@ function verify(
   if (findUsages(parse(Lang.Tsx, output).root(), target).length > 0) {
     return 'verify-usage-still-present';
   }
-  if (introducesTypeErrors(before, output)) return 'type-check-failed';
   return null;
 }

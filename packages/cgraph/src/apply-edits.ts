@@ -9,7 +9,18 @@ import {
   writeSync,
 } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
-import type { TextEdit } from './extract-component.types.js';
+
+/**
+ * A replacement of `[start, end)` with `text`, in character offsets into the
+ * original source. Owned here, with the writer that consumes it — it is the most
+ * generic type in the package and every op produces one.
+ */
+export interface TextEdit {
+  /** Character offsets into the original source. */
+  start: number;
+  end: number;
+  text: string;
+}
 
 /** Short content hash — the same stale-guard identity `extractComponent` uses. */
 export function hashSource(code: string): string {
