@@ -1,6 +1,5 @@
-import { extract } from 'component-outline';
+import { containsTag, extract } from 'component-outline';
 import { typeGateVerdict } from './checked-op.js';
-import { containsTag } from './skel-utils.js';
 import type {
   VerifyExtractionFailure,
   VerifyExtractionRequest,

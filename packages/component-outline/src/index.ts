@@ -1,5 +1,6 @@
 export { extract, type ExtractOptions } from './extract.js';
 export { printOutline } from './print-outline.js';
+export { containsTag, countTag } from './skel.js';
 export {
   CATALOG,
   DEFAULT_HOC_NAMES,

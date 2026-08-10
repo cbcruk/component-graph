@@ -1,6 +1,6 @@
 import { parse, Lang, type SgNode } from '@ast-grep/napi';
 import { ts } from 'ts-morph';
-import { extract } from 'component-outline';
+import { containsTag, extract } from 'component-outline';
 import { hashSource } from './apply-edits.js';
 import {
   JSX_NODE_KINDS,
@@ -16,7 +16,6 @@ import {
   locateComponentFn,
 } from './ast-utils.js';
 import { completeCheckedOp } from './checked-op.js';
-import { containsTag } from './skel-utils.js';
 import { createCheckFile } from './compiler-host.js';
 import type {
   ExtractComponentFailure,

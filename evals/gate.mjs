@@ -14,16 +14,14 @@
 //
 // Usage: node evals/gate.mjs <task.json> <candidate.tsx> [--arm <arm>]
 import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { verifyExtraction } from '../packages/cgraph/dist/verify-extraction.js';
+import { verifyExtraction } from 'cgraph';
 import { renderEquivalent } from './render-equiv.mjs';
 import { makeRecord, outcomeFromGate } from './record.mjs';
+import { loadTask, readFixture } from './task.mjs';
 
-const evalsDir = dirname(fileURLToPath(import.meta.url));
-
+/** `task` must come from `loadTask` — it carries the resolved fixture path. */
 export function gate(task, candidate) {
-  const original = readFileSync(join(evalsDir, task.fixture), 'utf8');
+  const original = readFixture(task);
 
   // v1 — static: compiles no worse + structurally sound extraction.
   const v1 = verifyExtraction({ file: task.fixture, original, candidate });
@@ -64,7 +62,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     console.error('usage: node evals/gate.mjs <task.json> <candidate.tsx> [--arm <arm>]');
     process.exit(2);
   }
-  const task = JSON.parse(readFileSync(taskPath, 'utf8'));
+  const task = loadTask(taskPath);
   const candidate = readFileSync(candidatePath, 'utf8');
   const armIdx = rest.indexOf('--arm');
   const verdict = gate(task, candidate);

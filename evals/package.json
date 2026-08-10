@@ -4,7 +4,12 @@
   "private": true,
   "type": "module",
   "description": "Agent-in-the-loop eval harness + render-based behavioral-equivalence oracle",
+  "scripts": {
+    "check": "node task.mjs && node record.mjs --check results.jsonl"
+  },
   "dependencies": {
+    "cgraph": "workspace:*",
+    "component-outline": "workspace:*",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "typescript": "^5.9.3"

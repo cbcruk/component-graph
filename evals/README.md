@@ -15,8 +15,9 @@ errors), the tool's structural **verify** gate, and the **round-trip law**. So
 ## Shape
 
 ```
-tasks/*.json      task = { fixture, instruction, target } with an objective target
+tasks/*.json      task = { id, fixture, instruction, target, render?, adversarial? }
 fixtures/*.tsx    the input files
+task.mjs          tasks/*.json schema; resolves `fixture` to a path once
 record.mjs        results.jsonl schema: one shape, one outcome vocabulary
 score.mjs         deterministic scorer → one record
 extract-tool.mjs  arm-B executor: runs the cgraph op from agent-chosen params
@@ -34,12 +35,12 @@ results.jsonl     append-only log of records (schema 1)
 ## Run
 
 Build first (`pnpm build`), then spawn agents (via the session's Agent tool),
-and write each output to `candidates/`. Paths resolve against the current
-directory, so run these from the repo root and append the record to the log:
+and write each output to `candidates/`. Then:
 
 ```sh
-node evals/score.mjs evals/candidates/x.tsx evals/fixtures/card.tsx '<targetJSON>' \
-  --task extract-count-badge --arm A-freehand --trial 1 --model claude-opus-4-8 \
+node evals/score.mjs evals/candidates/x.tsx \
+  --task-file evals/tasks/extract-count-badge.json \
+  --arm A-freehand --trial 1 --model claude-opus-4-8 \
   >> evals/results.jsonl
 
 node evals/extract-tool.mjs evals/fixtures/card.tsx \
@@ -49,11 +50,15 @@ node evals/gate.mjs evals/tasks/extract-collision.json evals/candidates/x.tsx \
   >> evals/results.jsonl
 ```
 
-`--task` and `--arm` are required: each producer emits a complete record, so
-the envelope is never assembled by hand. Check the log at any time with:
+The task file supplies the id, the target and the original source, and each
+producer emits a complete record — neither the target nor the log envelope is
+assembled by hand. `fixture` is stored relative to `evals/` and resolved once in
+[`task.mjs`](./task.mjs), so these work from any directory.
+
+Validate the tasks and the log at any time:
 
 ```sh
-node evals/record.mjs --check evals/results.jsonl
+pnpm --filter evals check
 ```
 
 ## Findings
