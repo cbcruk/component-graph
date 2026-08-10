@@ -7,7 +7,15 @@ A React/JSX structure tooling stack for agents. Two layers, where the lower one 
 
 > One-line thesis: **treat the graph (structure) as close to the truth as possible, honestly leave what you don't know as opaque, and compute on the fly with no index.**
 
-For lineage and detailed design see [`PROJECT_BRIEF.md`](./PROJECT_BRIEF.md); for extension candidates see [`TODO.md`](./TODO.md).
+For the vocabulary these docs use see [`CONTEXT.md`](./CONTEXT.md); for decisions
+and why they were made see [`docs/adr/`](./docs/adr). For lineage and the original
+design see [`PROJECT_BRIEF.md`](./PROJECT_BRIEF.md); for extension candidates see
+[`TODO.md`](./TODO.md).
+
+> **Note:** the brief above states the founding hypothesis — that agents need a
+> structural *editor*. The evals tested it and found the value sits in the
+> *verifier* instead; see [ADR-0001](./docs/adr/0001-verification-is-the-product.md).
+> The brief is kept as the record of where this started, not as current direction.
 
 ## Architecture
 
