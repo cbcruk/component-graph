@@ -4,6 +4,7 @@ export { roundtrip, type RoundtripResult } from './roundtrip.js';
 export { extractComponent, hashSource } from './extract-component.js';
 export { inlineComponent } from './inline-component.js';
 export { verifyExtraction } from './verify-extraction.js';
+export { checkTypeDelta, type TypeDelta } from './type-gate.js';
 export {
   applyEditsToFile,
   applyTextEdits,

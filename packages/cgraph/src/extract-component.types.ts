@@ -43,7 +43,9 @@ export type ExtractComponentFailure =
   | 'verify-prop-mismatch'
   | 'verify-missing-original'
   | 'verify-usage-missing'
-  | 'type-check-failed';
+  | 'type-check-failed'
+  /** The type checker could not run — refused rather than assumed clean. */
+  | 'type-check-unavailable';
 
 export type ExtractComponentResult =
   | {

@@ -27,7 +27,9 @@ export type InlineComponentFailure =
   | 'unsupported-shadowing'
   | 'verify-target-still-present'
   | 'verify-usage-still-present'
-  | 'type-check-failed';
+  | 'type-check-failed'
+  /** The type checker could not run — refused rather than assumed clean. */
+  | 'type-check-unavailable';
 
 export type InlineComponentResult =
   | {

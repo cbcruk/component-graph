@@ -13,7 +13,7 @@ import {
   locateComponentFn,
   unwrapParen,
 } from './ast-utils.js';
-import { introducesTypeErrors } from './type-gate.js';
+import { checkTypeDelta } from './type-gate.js';
 import type {
   ExtractComponentFailure,
   ExtractComponentRequest,
@@ -368,7 +368,9 @@ function verify(
   if (!enclosing || !enclosing.root) return 'verify-missing-original';
   if (!containsComponentTag(enclosing.root, newName)) return 'verify-usage-missing';
 
-  if (introducesTypeErrors(before, output)) return 'type-check-failed';
+  const delta = checkTypeDelta(before, output);
+  if (delta === 'dirty') return 'type-check-failed';
+  if (delta === 'unknown') return 'type-check-unavailable';
   return null;
 }
 

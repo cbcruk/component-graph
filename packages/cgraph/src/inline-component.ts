@@ -9,7 +9,7 @@ import {
   kindOf,
   locateComponentFn,
 } from './ast-utils.js';
-import { introducesTypeErrors } from './type-gate.js';
+import { checkTypeDelta } from './type-gate.js';
 import type { TextEdit } from './extract-component.types.js';
 import type {
   InlineComponentFailure,
@@ -290,6 +290,8 @@ function verify(
   if (findUsages(parse(Lang.Tsx, output).root(), target).length > 0) {
     return 'verify-usage-still-present';
   }
-  if (introducesTypeErrors(before, output)) return 'type-check-failed';
+  const delta = checkTypeDelta(before, output);
+  if (delta === 'dirty') return 'type-check-failed';
+  if (delta === 'unknown') return 'type-check-unavailable';
   return null;
 }

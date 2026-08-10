@@ -5,7 +5,7 @@
 // Usage: node evals/score.mjs <candidate.tsx> <original.tsx> '<targetJSON>'
 import { readFileSync } from 'node:fs';
 import { extract } from '../packages/component-outline/dist/index.js';
-import { introducesTypeErrors } from '../packages/cgraph/dist/type-gate.js';
+import { checkTypeDelta } from '../packages/cgraph/dist/type-gate.js';
 
 const [, , candidatePath, originalPath, targetJson] = process.argv;
 const target = JSON.parse(targetJson);
@@ -42,8 +42,12 @@ if (checks.parses) {
   checks.hasProps = wantProps.every((p) => props.includes(p));
   checks.faithfulBody = created?.root ? created.root.tag === target.bodyTag : false;
 }
-// A new edit must not add semantic errors the original didn't have.
-checks.noNewTypeErrors = !introducesTypeErrors(original, candidate);
+// A new edit must not add semantic errors the original didn't have. `unknown`
+// (the checker could not run) is recorded distinctly and does not count as
+// clean — a scorer that cannot verify must not award the check.
+const typeDelta = checkTypeDelta(original, candidate);
+checks.typeDelta = typeDelta;
+checks.noNewTypeErrors = typeDelta === 'clean';
 
 const REQUIRED = [
   'parses',

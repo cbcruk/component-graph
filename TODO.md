@@ -18,6 +18,12 @@
       tsconfig 인지(프로젝트 실제 컴파일 옵션 로드) + 신규 에러의 종류 판별로 강화.
       알려진 약점: 타입 해석은 `strict:true`, 델타 게이트는 `strict:false`로 불일치 →
       strict 전용 에러가 게이트를 통과. 두 패스의 strict 설정을 통일할 것.
+      - [x] **fail-open 제거** — `introducesTypeErrors`는 진단 계산 실패 시 `false`(=통과)를
+            반환해, "검사 결과 깨끗함"과 "검사 자체를 못 함"이 구별되지 않았다(fail-open).
+            `checkTypeDelta → 'clean' | 'dirty' | 'unknown'` 삼상태로 교체하고 세 op는
+            `unknown`을 `type-check-unavailable`로 **거부**한다. `type-gate.test.ts` 신규(9 tests).
+      - [ ] **strict 통일은 남음** — 위 불일치 자체는 그대로. 게이트를 `strict:true`로 올리면
+            과잉 거부 위험이 있어 별도 평가 필요.
 - [ ] **스코프 인지 타입 해석** — `resolveTypesWithTsMorph`가 파일 전체에서 이름으로
       매칭(문서 순서 첫 매칭 승리)해 동명 바인딩이 있으면 잘못된 타입을 붙임.
       참조 지점의 심볼로 해석하도록 교체. `any`→`unknown` 축약(cleanType)도 재검토.

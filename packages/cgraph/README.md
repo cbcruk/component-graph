@@ -46,7 +46,10 @@ It lifts a JSX element subtree into a new sibling component:
 4. **Fail-closed** — nothing is emitted unless every guard passes: `stale-hash`,
    `invalid-name`, `name-collision`, `component-not-found`, `target-not-found`,
    `target-is-root`, `cyclic`, structural re-extraction invariants, and a
-   ts-morph diagnostic-delta type gate (`type-check-failed`). Cases outside the
+   ts-morph diagnostic-delta type gate (`type-check-failed`). The gate is
+   tri-state: if the checker cannot run at all, the op refuses with
+   `type-check-unavailable` rather than treating an unverifiable edit as
+   clean. Cases outside the
    honest subset are rejected *up front* with a specific reason rather than a
    vague late gate failure: a target inside an opaque expression
    (`{cond && <x/>}`, ternary, `.map` callback) → `unsupported-conditional`; a

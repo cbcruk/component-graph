@@ -1,5 +1,5 @@
 import { extract, type SkelNode } from 'component-outline';
-import { introducesTypeErrors } from './type-gate.js';
+import { checkTypeDelta } from './type-gate.js';
 import type {
   VerifyExtractionFailure,
   VerifyExtractionRequest,
@@ -42,9 +42,9 @@ export function verifyExtraction(
 
   // Compile safety: catches duplicate identifiers, undefined types, broken JSX —
   // the failure mode freehand editing hits on adversarial inputs.
-  if (introducesTypeErrors(req.original, req.candidate)) {
-    return fail('introduces-type-errors');
-  }
+  const delta = checkTypeDelta(req.original, req.candidate);
+  if (delta === 'dirty') return fail('introduces-type-errors');
+  if (delta === 'unknown') return fail('type-check-unavailable');
 
   const originalNames = new Set(originalComps);
   const candidateNames = new Set(candidate.components.map((c) => c.name));
