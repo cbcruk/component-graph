@@ -3,12 +3,16 @@ import { ts } from 'ts-morph';
 import { extract } from 'component-outline';
 import { hashSource } from './apply-edits.js';
 import {
-  TARGET_KINDS,
+  JSX_NODE_KINDS,
+  calleeName,
+  findRootJsx,
+  isHookIdentifier,
+  kindOf,
+} from 'component-outline/ast';
+import {
   collectBoundNames,
   collectPatternNames,
-  findRootJsx,
   forEachReference,
-  kindOf,
   locateComponentFn,
 } from './ast-utils.js';
 import { completeCheckedOp } from './checked-op.js';
@@ -155,7 +159,7 @@ function findTargetJsx(rootJsx: SgNode, line: number): SgNode | null {
   let found: SgNode | null = null;
   const visit = (n: SgNode): void => {
     if (found) return;
-    if (TARGET_KINDS.has(kindOf(n)) && n.range().start.line + 1 === line) {
+    if (JSX_NODE_KINDS.has(kindOf(n)) && n.range().start.line + 1 === line) {
       found = n;
       return;
     }
@@ -202,13 +206,8 @@ function collectLocalScope(fnNode: SgNode): Map<string, PropOrigin> {
 
 function isHookCall(value: SgNode | null): boolean {
   if (!value || kindOf(value) !== 'call_expression') return false;
-  const callee = value.field('function');
-  if (!callee) return false;
-  const name =
-    kindOf(callee) === 'member_expression'
-      ? callee.field('property')?.text()
-      : callee.text();
-  return name ? /^use([A-Z].*)?$/.test(name) : false;
+  const name = calleeName(value.field('function'));
+  return name !== null && isHookIdentifier(name);
 }
 
 interface FreeVarAnalysis {

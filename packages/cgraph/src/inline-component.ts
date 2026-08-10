@@ -1,13 +1,11 @@
 import { parse, Lang, type SgNode } from '@ast-grep/napi';
 import { extract } from 'component-outline';
 import { applyTextEdits, hashSource, type TextEdit } from './apply-edits.js';
+import { JSX_NODE_KINDS, findRootJsx, kindOf } from 'component-outline/ast';
 import {
-  TARGET_KINDS,
   collectBoundNames,
   collectPatternNames,
-  findRootJsx,
   forEachReference,
-  kindOf,
   locateComponentFn,
 } from './ast-utils.js';
 import { completeCheckedOp } from './checked-op.js';
@@ -135,7 +133,7 @@ function tagName(node: SgNode): string | null {
 function findUsages(root: SgNode, name: string): SgNode[] {
   const out: SgNode[] = [];
   const visit = (n: SgNode): void => {
-    if (TARGET_KINDS.has(kindOf(n)) && tagName(n) === name) out.push(n);
+    if (JSX_NODE_KINDS.has(kindOf(n)) && tagName(n) === name) out.push(n);
     for (const c of n.children()) visit(c);
   };
   visit(root);

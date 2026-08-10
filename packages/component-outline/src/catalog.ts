@@ -1,6 +1,6 @@
 import type { SgNode } from '@ast-grep/napi';
 import type { SymbolType } from './outline.types.js';
-import { kindOf, unwrapParen } from './extract.utils.js';
+import { calleeName, kindOf, unwrapParen } from './ast.js';
 
 /**
  * A component declaration recognized by the catalog. `fnNode` is the
@@ -35,15 +35,8 @@ function symbolTypeOf(fnNode: SgNode): SymbolType {
 }
 
 function hocName(callee: SgNode | null): string | null {
-  if (!callee) return null;
-  if (kindOf(callee) === 'identifier') {
-    return HOC_NAMES.has(callee.text()) ? callee.text() : null;
-  }
-  if (kindOf(callee) === 'member_expression') {
-    const prop = callee.field('property');
-    if (prop && HOC_NAMES.has(prop.text())) return prop.text();
-  }
-  return null;
+  const name = calleeName(callee);
+  return name && HOC_NAMES.has(name) ? name : null;
 }
 
 interface FunctionTarget {

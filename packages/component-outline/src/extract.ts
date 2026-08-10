@@ -5,18 +5,21 @@ import {
   type ShapeReading,
 } from './catalog.js';
 import {
+  FUNCTION_BOUNDARY,
+  calleeName,
+  findRootJsx,
+  isHookIdentifier,
+  kindOf,
+  namedChild,
+} from './ast.js';
+import {
   classifyTag,
   collapseWhitespace,
   contentChildren,
   endLine,
-  isHookIdentifier,
-  isJsxNode,
-  kindOf,
-  namedChild,
   startLine,
   stripTypeAnnotation,
   unquote,
-  unwrapParen,
 } from './extract.utils.js';
 import {
   OUTLINE_VERSION,
@@ -29,13 +32,6 @@ import {
   type PropValue,
   type SkelNode,
 } from './outline.types.js';
-
-const FUNCTION_BOUNDARY = new Set([
-  'arrow_function',
-  'function_declaration',
-  'function_expression',
-  'method_definition',
-]);
 
 /**
  * Pure parse-now extractor: TSX source -> stable outline contract (v0.1).
@@ -322,15 +318,8 @@ function readHooks(fnNode: SgNode): HookCall[] {
 }
 
 function hookName(callee: SgNode | null): string | null {
-  if (!callee) return null;
-  if (callee.kind() === 'identifier') {
-    return isHookIdentifier(callee.text()) ? callee.text() : null;
-  }
-  if (callee.kind() === 'member_expression') {
-    const prop = callee.field('property');
-    if (prop && isHookIdentifier(prop.text())) return prop.text();
-  }
-  return null;
+  const name = calleeName(callee);
+  return name && isHookIdentifier(name) ? name : null;
 }
 
 function bindsForCall(call: SgNode): string[] {
@@ -354,40 +343,6 @@ function bindsForCall(call: SgNode): string[] {
   return [];
 }
 
-function findRootJsx(fnNode: SgNode): SgNode | null {
-  const body = fnNode.field('body');
-  if (!body) return null;
-
-  if (body.kind() !== 'statement_block') {
-    const jsx = unwrapParen(body);
-    return isJsxNode(jsx) ? jsx : null;
-  }
-
-  let found: SgNode | null = null;
-  const visit = (node: SgNode): void => {
-    if (found) return;
-    if (node.kind() === 'return_statement') {
-      const arg = node.children().find((c) => c.isNamed());
-      if (arg) {
-        const jsx = unwrapParen(arg);
-        if (isJsxNode(jsx)) found = jsx;
-      }
-      return;
-    }
-    for (const child of node.children()) {
-      if (found) return;
-      if (FUNCTION_BOUNDARY.has(kindOf(child))) continue;
-      visit(child);
-    }
-  };
-
-  for (const child of body.children()) {
-    if (found) break;
-    if (FUNCTION_BOUNDARY.has(kindOf(child))) continue;
-    visit(child);
-  }
-  return found;
-}
 
 function buildSkel(node: SgNode): SkelNode | null {
   const kind = node.kind();

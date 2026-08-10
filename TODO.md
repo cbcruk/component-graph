@@ -48,6 +48,12 @@
 
 - [ ] **cross-file (Tier 1 확장)** — import 따라가 타입/데이터플로 해석. 브리프의 "no-cross-file"을 A 레이어 편집 노드에 한해 완화.
 - [x] **B 카탈로그 확장 (1차)** — class 컴포넌트(render 기반, honest), `export { X as Y }` 리네임 re-export 처리 완료.
+- [x] **AST 머신러리 공유** — `component-outline/ast` 서브패스 신설. `findRootJsx`·`kindOf`·
+      `unwrapParen`·`isJsxNode`·`FUNCTION_BOUNDARY`·`isHookIdentifier`·`calleeName`가 한 정의로 통일.
+      특히 `findRootJsx`는 "컴포넌트의 JSX가 무엇인가"의 정의라 사본이 둘이면 한쪽만 넓혔을 때
+      다른 쪽이 조용히 옛 정의를 유지한다(→ outline은 잘 읽는 파일에 `component-has-no-jsx`).
+      두 레이어가 같은 판정을 내리는지 검증하는 회귀 테스트 추가. 계약(JSON)은 메인 엔트리,
+      머신러리는 `/ast`로 분리 — B가 약속하는 것과 두 레이어가 공유하는 것을 구분.
 - [ ] **B 카탈로그 확장 (계속)** — 중첩 컴포넌트, `styled`/기타 HOC(honest하게 opt-in 카탈로그).
 - [ ] **outline `--items imports` 등 CLI 필터 정교화**, 디렉터리 export-surface 요약 뷰 개선.
 

@@ -1,18 +1,12 @@
 import { type SgNode } from '@ast-grep/napi';
+import { kindOf } from 'component-outline/ast';
 
-/** Grammar kind of a node as a plain string. */
-export const kindOf = (node: SgNode): string => String(node.kind());
-
-/** Nested scopes that stop a free-var / root-jsx walk from descending. */
-export const FUNCTION_BOUNDARY = new Set([
-  'arrow_function',
-  'function_declaration',
-  'function_expression',
-  'method_definition',
-]);
-
-/** JSX nodes that can be a legal extraction/inline target (element containers). */
-export const TARGET_KINDS = new Set(['jsx_element', 'jsx_self_closing_element']);
+// `kindOf`, `findRootJsx`, `unwrapParen`, `isJsxNode`, `JSX_NODE_KINDS`,
+// `FUNCTION_BOUNDARY` and `calleeName` come from `component-outline/ast`, which
+// owns them — this package used to carry its own copies, and `findRootJsx`
+// (which *defines* what counts as a component's JSX) had drifted into a
+// second, independently maintained definition. What remains here is specific to
+// the editing layer.
 
 /** Parents whose identifier child is a tag name, not a value reference. */
 export const TAG_PARENT_KINDS = new Set([
@@ -20,55 +14,6 @@ export const TAG_PARENT_KINDS = new Set([
   'jsx_self_closing_element',
   'jsx_closing_element',
 ]);
-
-/** Peel `(expr)` wrappers to the inner named node. */
-export function unwrapParen(node: SgNode): SgNode {
-  let current = node;
-  while (kindOf(current) === 'parenthesized_expression') {
-    const inner = current.children().find((c) => c.isNamed());
-    if (!inner) break;
-    current = inner;
-  }
-  return current;
-}
-
-export function isJsxContainer(node: SgNode): boolean {
-  const k = kindOf(node);
-  return k === 'jsx_element' || k === 'jsx_self_closing_element';
-}
-
-/** The single JSX subtree a component returns, or null if it has none. */
-export function findRootJsx(fnNode: SgNode): SgNode | null {
-  const body = fnNode.field('body');
-  if (!body) return null;
-  if (kindOf(body) !== 'statement_block') {
-    const jsx = unwrapParen(body);
-    return isJsxContainer(jsx) ? jsx : null;
-  }
-  let found: SgNode | null = null;
-  const visit = (n: SgNode): void => {
-    if (found) return;
-    if (kindOf(n) === 'return_statement') {
-      const arg = n.children().find((c) => c.isNamed());
-      if (arg) {
-        const jsx = unwrapParen(arg);
-        if (isJsxContainer(jsx)) found = jsx;
-      }
-      return;
-    }
-    for (const c of n.children()) {
-      if (found) return;
-      if (FUNCTION_BOUNDARY.has(kindOf(c))) continue;
-      visit(c);
-    }
-  };
-  for (const c of body.children()) {
-    if (found) break;
-    if (FUNCTION_BOUNDARY.has(kindOf(c))) continue;
-    visit(c);
-  }
-  return found;
-}
 
 /**
  * The function/arrow node for a top-level component named `name`, or null.

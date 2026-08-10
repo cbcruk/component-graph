@@ -58,6 +58,24 @@ const outline = extract('Profile.tsx', sourceCode); // pure: (file, code) => Out
 console.log(printOutline(outline));
 ```
 
+### `component-outline/ast` — shared machinery
+
+A second entry point carrying the ast-grep walkers this package owns:
+
+```ts
+import { findRootJsx, calleeName, kindOf, isJsxNode } from 'component-outline/ast';
+```
+
+It is deliberately separate from the main entry point. The **JSON contract is
+what this package promises**; `/ast` is machinery shared with the A layer
+([`cgraph`](../cgraph)), which edits TSX and so needs `SgNode`s to compute
+source ranges — something the contract does not carry.
+
+`findRootJsx` is the reason it exists. It *defines* what counts as a component's
+JSX, and both layers ask that question: this package to decide whether to
+catalogue a component at all, `cgraph` to decide what it may edit. Two copies
+meant widening one silently left the other behind.
+
 ## JSON contract (v0.1)
 
 The output is the interface that agents and the A layer depend on.
