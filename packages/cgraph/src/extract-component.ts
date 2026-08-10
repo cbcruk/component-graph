@@ -1,7 +1,7 @@
 import { parse, Lang, type SgNode } from '@ast-grep/napi';
 import { ts } from 'ts-morph';
 import { containsTag, extract } from 'component-outline';
-import { hashSource } from './apply-edits.js';
+import { hashSource, type TextEdit } from './apply-edits.js';
 import {
   JSX_NODE_KINDS,
   calleeName,
@@ -15,16 +15,70 @@ import {
   forEachReference,
   locateComponentFn,
 } from './ast-utils.js';
-import { completeCheckedOp } from './checked-op.js';
+import { completeCheckedOp, type CommonFailure } from './checked-op.js';
 import { createCheckFile } from './compiler-host.js';
-import type {
-  ExtractComponentFailure,
-  ExtractComponentRequest,
-  ExtractComponentResult,
-  ExtractedProp,
-  PropOrigin,
-  TextEdit,
-} from './extract-component.types.js';
+
+export interface ExtractComponentRequest {
+  file: string;
+  code: string;
+  /** Name of the enclosing component whose JSX contains the target. */
+  component: string;
+  /** 1-based line where the JSX subtree to extract begins. */
+  targetLine: number;
+  /** PascalCase name for the new component. */
+  newName: string;
+  /** Optional stale-hash guard: reject if it does not match the input hash. */
+  expectedHash?: string;
+}
+
+/** Data-flow origin of a prop, resolved locally (Tier 1). */
+export type PropOrigin = 'param' | 'hook' | 'local';
+
+export interface ExtractedProp {
+  name: string;
+  /** Resolved type text (ts-morph), or "unknown" when it can't be resolved. */
+  typeText: string;
+  origin: PropOrigin;
+}
+
+/**
+ * Shared reasons come from `CommonFailure`; the rest are the ones only this op
+ * can raise, so the result type stays precise about what it can return.
+ *
+ * Every entry below is produced by exactly one guard in this file. Kept beside
+ * them deliberately: as a separate types module the union was a transcript of
+ * this file's control flow stored somewhere else, so adding a guard meant
+ * editing two files in lockstep.
+ */
+export type ExtractComponentFailure =
+  | CommonFailure
+  | 'invalid-name'
+  | 'name-collision'
+  | 'component-has-no-jsx'
+  | 'target-not-found'
+  | 'target-is-root'
+  | 'cyclic'
+  | 'unsupported-conditional'
+  | 'verify-missing-new-component'
+  | 'verify-prop-mismatch'
+  | 'verify-missing-original'
+  | 'verify-usage-missing';
+
+export type ExtractComponentResult =
+  | {
+      ok: true;
+      /** Full edited source. */
+      output: string;
+      /** The generated new component source. */
+      newComponent: string;
+      /** The replacement usage placed where the target was. */
+      usage: string;
+      props: ExtractedProp[];
+      edits: TextEdit[];
+      /** Content hash of `output`, for chaining atomic edits. */
+      hash: string;
+    }
+  | { ok: false; reason: ExtractComponentFailure };
 
 const fail = (reason: ExtractComponentFailure): ExtractComponentResult => ({
   ok: false,

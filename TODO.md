@@ -73,6 +73,9 @@
   - graph lens는 **읽기 전용**이며 편집 경로가 아니다. op는 byte-exact `TextEdit`를 위해 char offset이
     필요한데 outline 계약은 `line`만 준다. 렌즈는 JXON GetPut/PutGet 법칙을 실행 가능하게 만든 자리.
     `roundtrip`은 `held`/`broken`/`no-jsx` — JSX 없는 컴포넌트는 법칙을 검증한 적이 없으므로 pass가 아니다.
+  - 각 op의 `Request`/`Failure`/`Result`는 구현 파일 안에 산다. failure union은 그 파일 guard 한 줄당
+    한 항목이라, 별도 `.types.ts`에 두면 guard 추가 시 두 파일을 맞춰 고쳐야 했다(제어 흐름의 전사본을
+    다른 곳에 보관). `graph.types.ts`는 예외로 유지 — 제어 흐름이 아니라 데이터 포맷이고 소비자가 셋.
   - 세 op가 공유하는 것: `checked-op`(edits 적용 → 구조 검증 → 타입 게이트 순서 + `CommonFailure`),
     `ast-utils`(`collectBoundNames`/`forEachReference` — free-var 분석), `skel-utils`(`containsTag`),
     `compiler-host`(단일 컴파일러 설정), `type-gate`. CLI도 `runEditOp` 하나로 합쳐 op별로는

@@ -1,10 +1,37 @@
 import { containsTag, extract } from 'component-outline';
 import { typeGateVerdict } from './checked-op.js';
-import type {
-  VerifyExtractionFailure,
-  VerifyExtractionRequest,
-  VerifyExtractionResult,
-} from './verify-extraction.types.js';
+
+export interface VerifyExtractionRequest {
+  /** Path (for diagnostics / jsx inference). */
+  file: string;
+  /** The file before the agent's freehand edit. */
+  original: string;
+  /** The candidate file the agent produced. */
+  candidate: string;
+}
+
+/**
+ * Every reason below is produced by exactly one guard in this file, and is kept
+ * beside them for that reason. This op shares no `CommonFailure` reasons with
+ * the edit ops — it neither takes a stale-hash guard nor locates a component by
+ * name — so its union stands alone.
+ */
+export type VerifyExtractionFailure =
+  | 'parse-failed'
+  /** A component name is declared more than once in the candidate. */
+  | 'duplicate-declaration'
+  | 'introduces-type-errors'
+  | 'no-new-component'
+  | 'multiple-new-components'
+  | 'lost-original-component'
+  | 'new-component-empty'
+  | 'new-component-unused'
+  /** The type checker could not run — refused rather than assumed clean. */
+  | 'type-check-unavailable';
+
+export type VerifyExtractionResult =
+  | { ok: true; newComponent: string }
+  | { ok: false; reason: VerifyExtractionFailure };
 
 const fail = (reason: VerifyExtractionFailure): VerifyExtractionResult => ({
   ok: false,

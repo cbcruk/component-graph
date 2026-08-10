@@ -6,8 +6,9 @@ import { extractComponent, hashSource } from './extract-component.js';
 import { inlineComponent } from './inline-component.js';
 import { verifyExtraction } from './verify-extraction.js';
 import { applyEditsToFile } from './apply-edits.js';
-import type { TextEdit, ExtractComponentResult } from './extract-component.types.js';
-import type { InlineComponentResult } from './inline-component.types.js';
+import type { TextEdit } from './apply-edits.js';
+import type { ExtractComponentResult } from './extract-component.js';
+import type { InlineComponentResult } from './inline-component.js';
 
 /** The success branches — what the CLI actually renders. */
 type ExtractSuccess = Extract<ExtractComponentResult, { ok: true }>;

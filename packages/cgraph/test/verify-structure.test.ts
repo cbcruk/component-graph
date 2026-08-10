@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { verifyExtractStructure } from '../src/extract-component.js';
 import { verifyInlineStructure } from '../src/inline-component.js';
-import type { ExtractedProp } from '../src/extract-component.types.js';
+import type { ExtractedProp } from '../src/extract-component.js';
 
 // These reasons are unreachable from a correct planner — every one of them means
 // the op produced an edit that betrays its own contract. Before the structural
