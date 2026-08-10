@@ -97,7 +97,7 @@ freehand outputs:
 | shadowing | pass | refuse | **pass** (accepted the valid edit) |
 
 **Arm C strictly dominates.** It never ships broken code — the collision edit
-that arm A silently emitted is rejected as `introduces-type-errors` — *and* it
+that arm A silently emitted is rejected as `duplicate-declaration` — *and* it
 keeps the coverage arm B loses, accepting the valid shadowing extraction the
 `extractComponent` op conservatively refuses. Model coverage + tool guarantee,
 with neither's downside.
@@ -139,7 +139,7 @@ two failure modes caught:
 | candidate | stage that fires | outcome |
 |---|---|---|
 | `CountBadge` / `Row` / `Wrap` (valid) | — | **accept** |
-| collision (duplicate decl) | static (v1) | reject: `introduces-type-errors` |
+| collision (duplicate decl) | static (v1) | reject: `duplicate-declaration` |
 | `count + 1` (typechecks, wrong output) | render (v2) | reject: `behavior-changed` |
 
 So arm C rejects **both** the edit that doesn't compile *and* the edit that

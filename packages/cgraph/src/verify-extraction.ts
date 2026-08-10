@@ -20,8 +20,10 @@ const fail = (reason: VerifyExtractionFailure): VerifyExtractionResult => ({
  * lost). This keeps a strong model's coverage while recovering the safety
  * guarantee the model alone doesn't have.
  *
+ * Checks run structure-first, type gate last, so the most specific reason wins.
+ *
  * The eval shows why: on a name collision, freehand silently emits a duplicate
- * declaration — the `introduces-type-errors` check rejects it. On shadowing,
+ * declaration — the `duplicate-declaration` check rejects it. On shadowing,
  * freehand extracts correctly and the checks pass — so this accepts what the
  * `extractComponent` op conservatively refuses.
  *
@@ -40,14 +42,17 @@ export function verifyExtraction(
     return fail('parse-failed');
   }
 
-  // Compile safety: catches duplicate identifiers, undefined types, broken JSX —
-  // the failure mode freehand editing hits on adversarial inputs.
-  const delta = checkTypeDelta(req.original, req.candidate);
-  if (delta === 'dirty') return fail('introduces-type-errors');
-  if (delta === 'unknown') return fail('type-check-unavailable');
-
+  const candidateComps = candidate.components.map((c) => c.name);
   const originalNames = new Set(originalComps);
-  const candidateNames = new Set(candidate.components.map((c) => c.name));
+  const candidateNames = new Set(candidateComps);
+
+  // A redeclared name is the freehand collision failure. Caught structurally so
+  // it reports as itself: the type gate would also catch it, but only as a
+  // generic `introduces-type-errors`, and the net-new check below would call it
+  // `no-new-component` — true (the Set collapses the duplicate) yet misleading,
+  // since the edit did create a component. Non-component redeclarations stay
+  // the type gate's job.
+  if (candidateComps.length !== candidateNames.size) return fail('duplicate-declaration');
 
   // Nothing that existed may have vanished.
   for (const name of originalNames) {
@@ -68,6 +73,13 @@ export function verifyExtraction(
     (c) => c.name !== newName && c.root && containsTag(c.root, newName),
   );
   if (!used) return fail('new-component-unused');
+
+  // Compile safety last: it catches what structure cannot — undefined types,
+  // broken JSX, strict-only errors — but it is both the most expensive check and
+  // the least specific, so every structural reason gets to win first.
+  const delta = checkTypeDelta(req.original, req.candidate);
+  if (delta === 'dirty') return fail('introduces-type-errors');
+  if (delta === 'unknown') return fail('type-check-unavailable');
 
   return { ok: true, newComponent: newName };
 }

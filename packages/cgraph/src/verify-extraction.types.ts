@@ -9,6 +9,8 @@ export interface VerifyExtractionRequest {
 
 export type VerifyExtractionFailure =
   | 'parse-failed'
+  /** A component name is declared more than once in the candidate. */
+  | 'duplicate-declaration'
   | 'introduces-type-errors'
   | 'no-new-component'
   | 'multiple-new-components'
