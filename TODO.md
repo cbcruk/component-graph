@@ -54,7 +54,14 @@
       다른 쪽이 조용히 옛 정의를 유지한다(→ outline은 잘 읽는 파일에 `component-has-no-jsx`).
       두 레이어가 같은 판정을 내리는지 검증하는 회귀 테스트 추가. 계약(JSON)은 메인 엔트리,
       머신러리는 `/ast`로 분리 — B가 약속하는 것과 두 레이어가 공유하는 것을 구분.
-- [ ] **B 카탈로그 확장 (계속)** — 중첩 컴포넌트, `styled`/기타 HOC(honest하게 opt-in 카탈로그).
+- [x] **카탈로그 seam에 소켓 달기** — `extract(file, code, { readers })`. 커버리지 확장이
+      `CATALOG` 제자리 수정이 아니라 리더 세트 주입이 된다(README 주장이 이제 사실).
+      리더는 적용 **position**(`declaration` | `expression`)을 선언한다 — 같은 node kind가
+      양쪽에 나타나므로(`export default function foo(){}`) kind가 아니라 position이 중복 판독을
+      막는다. `readExpressionComponent`가 `CATALOG` 밖에서 따로 디스패치되던 것도 해소:
+      레지스트리는 하나, 리더 추가는 한 곳.
+      `createComponentReaders(hocNames)`로 HOC 목록만 넓히는 opt-in 경로 제공.
+- [ ] **B 카탈로그 확장 (계속)** — 중첩 컴포넌트. `styled` 같은 HOC은 이제 위 opt-in 경로로 가능.
 - [ ] **outline `--items imports` 등 CLI 필터 정교화**, 디렉터리 export-surface 요약 뷰 개선.
 
 ---

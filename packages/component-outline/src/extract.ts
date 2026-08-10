@@ -1,7 +1,8 @@
 import { parse, Lang, type SgNode } from '@ast-grep/napi';
 import {
-  readExpressionComponent,
+  CATALOG,
   runCatalog,
+  type ComponentReader,
   type ShapeReading,
 } from './catalog.js';
 import {
@@ -33,11 +34,28 @@ import {
   type SkelNode,
 } from './outline.types.js';
 
+export interface ExtractOptions {
+  /**
+   * Component readers to recognise declarations with. Defaults to `CATALOG`.
+   *
+   * This is the seam the catalog is built around: widening coverage means
+   * supplying readers, not editing the registry in place. Use
+   * `createComponentReaders(hocNames)` to keep the standard set and only widen
+   * the recognised higher-order components.
+   */
+  readers?: readonly ComponentReader[];
+}
+
 /**
  * Pure parse-now extractor: TSX source -> stable outline contract (v0.1).
  * Single file only; honest-partial; no cross-file resolution.
  */
-export function extract(file: string, code: string): Outline {
+export function extract(
+  file: string,
+  code: string,
+  options: ExtractOptions = {},
+): Outline {
+  const readers = options.readers ?? CATALOG;
   const root = parse(Lang.Tsx, code).root();
   const imports: ImportRef[] = [];
   const components: Component[] = [];
@@ -59,11 +77,9 @@ export function extract(file: string, code: string): Outline {
         exportedLocals.add(spec.local);
       }
       const readings = inner
-        ? runCatalog(inner)
+        ? runCatalog(inner, 'declaration', readers)
         : defaultExpr
-          ? [readExpressionComponent(defaultExpr)].filter(
-              (r): r is ShapeReading => r !== null,
-            )
+          ? runCatalog(defaultExpr, 'expression', readers)
           : [];
       for (const reading of readings) {
         const component = buildComponent(reading, node, true, isDefault);
@@ -75,7 +91,7 @@ export function extract(file: string, code: string): Outline {
       continue;
     }
 
-    for (const reading of runCatalog(node)) {
+    for (const reading of runCatalog(node, 'declaration', readers)) {
       const component = buildComponent(reading, node, false, false);
       if (component) components.push(component);
     }
