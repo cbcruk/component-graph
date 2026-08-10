@@ -5,3 +5,8 @@ dist
 
 # eval working area (transient agent outputs)
 evals/candidates/
+
+# agent skills installed locally via `npx skills add`
+.agents/
+.claude/skills/
+skills-lock.json
